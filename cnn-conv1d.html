@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>一维卷积 (Conv1d) 可视化工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* 亮色模式颜色变量 */
+            --bg-primary: #f9fafb;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f8fafc;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --border-primary: #e5e7eb;
+            --border-secondary: #d1d5db;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #2563eb;
+            --accent-hover: #1d4ed8;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            
+            /* 网格相关颜色 */
+            --grid-bg-even: #f8fafc;
+            --grid-bg-odd: #ffffff;
+            --grid-border: #e2e8f0;
+            
+            /* 高亮颜色 */
+            --highlight-kernel: rgba(59, 130, 246, 0.3);
+            --highlight-input: rgba(59, 130, 246, 0.2);
+            --highlight-output: #facc15;
+            
+            /* 按钮颜色 */
+            --btn-primary-bg: #3b82f6;
+            --btn-primary-hover: #2563eb;
+            --btn-secondary-bg: #6b7280;
+            --btn-secondary-hover: #4b5563;
+            
+            /* 输入控件颜色 */
+            --input-bg: #e5e7eb;
+            --input-thumb: #3b82f6;
+        }
+
+        /* 夜间模式CSS支持 */
+        .dark, 
+        [data-theme="dark"],
+        .dark-mode,
+        html.dark,
+        body.dark {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-primary: #475569;
+            --border-secondary: #64748b;
+            --accent-primary: #60a5fa;
+            --accent-secondary: #3b82f6;
+            --accent-hover: #2563eb;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            
+            /* 网格相关颜色 */
+            --grid-bg-even: #334155;
+            --grid-bg-odd: #1e293b;
+            --grid-border: #475569;
+            
+            /* 高亮颜色 */
+            --highlight-kernel: rgba(96, 165, 250, 0.4);
+            --highlight-input: rgba(96, 165, 250, 0.3);
+            --highlight-output: #fbbf24;
+            
+            /* 按钮颜色 */
+            --btn-primary-bg: #60a5fa;
+            --btn-primary-hover: #3b82f6;
+            --btn-secondary-bg: #64748b;
+            --btn-secondary-hover: #475569;
+            
+            /* 输入控件颜色 */
+            --input-bg: #475569;
+            --input-thumb: #60a5fa;
+        }
+
+        /* 使用媒体查询检测系统夜间模式偏好 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #0f172a;
+                --bg-secondary: #1e293b;
+                --bg-tertiary: #334155;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --text-muted: #94a3b8;
+                --border-primary: #475569;
+                --border-secondary: #64748b;
+                --accent-primary: #60a5fa;
+                --accent-secondary: #3b82f6;
+                --accent-hover: #2563eb;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+                
+                --grid-bg-even: #334155;
+                --grid-bg-odd: #1e293b;
+                --grid-border: #475569;
+                
+                --highlight-kernel: rgba(96, 165, 250, 0.4);
+                --highlight-input: rgba(96, 165, 250, 0.3);
+                --highlight-output: #fbbf24;
+                
+                --btn-primary-bg: #60a5fa;
+                --btn-primary-hover: #3b82f6;
+                --btn-secondary-bg: #64748b;
+                --btn-secondary-hover: #475569;
+                
+                --input-bg: #475569;
+                --input-thumb: #60a5fa;
+            }
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .param-label {
+            min-width: 140px;
+            color: var(--text-primary);
+        }
+
+        .data-grid {
+            display: grid;
+            grid-auto-rows: minmax(20px, 1fr);
+            border: 1px solid var(--grid-border);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .data-cell {
+            border-right: 1px solid var(--grid-border);
+            border-bottom: 1px solid var(--grid-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            position: relative;
+            transition: background-color 0.3s ease;
+            color: var(--text-primary);
+        }
+
+        .data-cell:nth-child(even) { 
+            background-color: var(--grid-bg-even); 
+        }
+        .data-cell:nth-child(odd) { 
+            background-color: var(--grid-bg-odd); 
+        }
+
+        .kernel-overlay {
+            position: absolute;
+            background-color: var(--highlight-kernel);
+            border: 2px solid var(--accent-secondary);
+            z-index: 10;
+            transition: left 0.5s ease-in-out;
+            pointer-events: none;
+        }
+
+        .output-highlight {
+            background-color: var(--highlight-output) !important;
+            transform: scale(1.1);
+        }
+
+        .input-highlight {
+            background-color: var(--highlight-input) !important;
+        }
+
+        /* 容器样式 */
+        .container {
+            background-color: transparent;
+        }
+
+        .bg-white {
+            background-color: var(--bg-secondary) !important;
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* 文字颜色 */
+        .text-gray-900 {
+            color: var(--text-primary) !important;
+        }
+
+        .text-gray-600 {
+            color: var(--text-secondary) !important;
+        }
+
+        .text-gray-500 {
+            color: var(--text-muted) !important;
+        }
+
+        .text-gray-800 {
+            color: var(--text-primary) !important;
+        }
+
+        /* 按钮样式 */
+        .btn-primary {
+            background-color: var(--btn-primary-bg);
+            color: white;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--btn-primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: var(--btn-secondary-bg);
+            color: white;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--btn-secondary-hover);
+        }
+
+        /* 输入控件样式 */
+        input[type="range"] {
+            background: var(--input-bg);
+            transition: background 0.3s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            background: var(--input-thumb);
+            transition: background 0.3s ease;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            background: var(--input-thumb);
+            transition: background 0.3s ease;
+        }
+
+        /* 阴影效果 */
+        .shadow-lg {
+            box-shadow: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -2px var(--shadow-color);
+        }
+
+        .shadow-md {
+            box-shadow: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -1px var(--shadow-color);
+        }
+
+        /* 边框样式 */
+        .border-b {
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        /* 错误文本颜色 */
+        .text-red-500 {
+            color: #ef4444 !important;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">一维卷积 (nn.Conv1d) 可视化工具</h1>
+            <p class="mt-2 text-lg text-gray-600">通过交互式调整参数，理解 Conv1d 的工作原理。</p>
+        </header>
+
+        <!-- 控制面板 -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+            <h2 class="text-2xl font-bold mb-6 border-b pb-3">参数控制器</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- 参数: Sequence Length -->
+                <div class="flex items-center">
+                    <label for="sequenceLength" class="param-label font-medium">序列长度 (L_in):</label>
+                    <input type="range" id="sequenceLength" min="5" max="30" value="12" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="sequenceLengthValue" class="ml-4 font-semibold w-8 text-center">12</span>
+                </div>
+                <!-- 参数: in_channels -->
+                <div class="flex items-center">
+                    <label for="inChannels" class="param-label font-medium">输入通道数 (C_in):</label>
+                    <input type="range" id="inChannels" min="1" max="8" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="inChannelsValue" class="ml-4 font-semibold w-8 text-center">3</span>
+                </div>
+                <!-- 参数: out_channels -->
+                <div class="flex items-center">
+                    <label for="outChannels" class="param-label font-medium">输出通道数 (C_out):</label>
+                    <input type="range" id="outChannels" min="1" max="8" value="4" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="outChannelsValue" class="ml-4 font-semibold w-8 text-center">4</span>
+                </div>
+                <!-- 参数: kernel_size -->
+                <div class="flex items-center">
+                    <label for="kernelSize" class="param-label font-medium">卷积核大小 (K):</label>
+                    <input type="range" id="kernelSize" min="1" max="7" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="kernelSizeValue" class="ml-4 font-semibold w-8 text-center">3</span>
+                </div>
+                <!-- 参数: dilation -->
+                <div class="flex items-center">
+                    <label for="dilation" class="param-label font-medium">扩张/空洞 (Dilation):</label>
+                    <input type="range" id="dilation" min="1" max="5" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="dilationValue" class="ml-4 font-semibold w-8 text-center">1</span>
+                </div>
+                <!-- 动画控制 -->
+                <div class="md:col-span-2 flex items-center justify-center space-x-4 mt-4">
+                    <button id="playAnimation" class="btn-primary px-6 py-2 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                        播放动画
+                    </button>
+                    <button id="resetAnimation" class="btn-secondary px-6 py-2 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                        重置
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 可视化区域 -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <!-- 输入数据 -->
+            <div class="bg-white p-4 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold mb-1">1. 输入数据 (Input)</h3>
+                <p class="text-sm text-gray-500 mb-4">形状: (Batch=1, C_in=<span id="inShapeC">3</span>, L_in=<span id="inShapeL">12</span>)</p>
+                <div class="relative">
+                    <div id="inputData" class="data-grid"></div>
+                    <div id="kernelOverlay" class="kernel-overlay" style="display: none;"></div>
+                </div>
+                <p class="mt-4 text-sm text-gray-600">
+                    <strong class="text-gray-900">输入通道数 (in_channels):</strong> 代表输入序列在每个时间点上的特征维度。例如，对于文本，它可能是词向量的维度；对于股价，可能是[开盘价, 最高价, 最低价, 收盘价]这4个特征。这里，每一行代表一个通道。
+                </p>
+            </div>
+
+            <!-- 卷积核 -->
+            <div class="bg-white p-4 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold mb-1">2. 卷积核 (Kernel)</h3>
+                <p class="text-sm text-gray-500 mb-4">形状: (C_out=<span id="kernelShapeC_out">4</span>, C_in=<span id="kernelShapeC_in">3</span>, K=<span id="kernelShapeK">3</span>)</p>
+                <div id="kernelData" class="data-grid"></div>
+                 <p class="mt-4 text-sm text-gray-600">
+                    <strong class="text-gray-900">卷积核大小 (kernel_size):</strong> 定义了卷积操作的"视野"或窗口大小。`kernel_size=3` 意味着卷积核一次会查看输入序列中3个相邻的时间点。
+                    <br><br>
+                    <strong class="text-gray-900">扩张率 (dilation):</strong> 控制卷积核元素之间的间距。`dilation=2` 意味着卷积核会跳过一个元素去观察，增大了感受野但没有增加计算量。图中蓝色高亮区域展示了扩张效果。
+                </p>
+            </div>
+
+            <!-- 输出数据 -->
+            <div class="bg-white p-4 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold mb-1">3. 输出数据 (Output)</h3>
+                <p class="text-sm text-gray-500 mb-4">形状: (Batch=1, C_out=<span id="outShapeC">4</span>, L_out=<span id="outShapeL">10</span>)</p>
+                <div id="outputData" class="data-grid"></div>
+                <p class="mt-4 text-sm text-gray-600">
+                    <strong class="text-gray-900">输出通道数 (out_channels):</strong> 代表我们使用了多少个不同的卷积核。每个卷积核负责从输入中提取一种特定的模式或特征。因此，输出通道数决定了提取出特征图的深度。这里，每一行代表一个输出通道。动画中黄色高亮的单元格表示当前正在计算的输出。
+                </p>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        // DOM 元素获取
+        const controls = {
+            sequenceLength: document.getElementById('sequenceLength'),
+            inChannels: document.getElementById('inChannels'),
+            outChannels: document.getElementById('outChannels'),
+            kernelSize: document.getElementById('kernelSize'),
+            dilation: document.getElementById('dilation'),
+        };
+
+        const values = {
+            sequenceLength: document.getElementById('sequenceLengthValue'),
+            inChannels: document.getElementById('inChannelsValue'),
+            outChannels: document.getElementById('outChannelsValue'),
+            kernelSize: document.getElementById('kernelSizeValue'),
+            dilation: document.getElementById('dilationValue'),
+        };
+
+        const visualizations = {
+            input: document.getElementById('inputData'),
+            kernel: document.getElementById('kernelData'),
+            output: document.getElementById('outputData'),
+            kernelOverlay: document.getElementById('kernelOverlay'),
+        };
+        
+        const shapes = {
+            inShapeC: document.getElementById('inShapeC'),
+            inShapeL: document.getElementById('inShapeL'),
+            kernelShapeC_out: document.getElementById('kernelShapeC_out'),
+            kernelShapeC_in: document.getElementById('kernelShapeC_in'),
+            kernelShapeK: document.getElementById('kernelShapeK'),
+            outShapeC: document.getElementById('outShapeC'),
+            outShapeL: document.getElementById('outShapeL'),
+        }
+
+        const buttons = {
+            play: document.getElementById('playAnimation'),
+            reset: document.getElementById('resetAnimation'),
+        };
+
+        let animationTimer = null;
+        let themeCheckTimer = null;
+        let currentTheme = null;
+
+        // 简化的主题检测
+        function checkTheme() {
+            const isDark = document.documentElement.classList.contains('dark') ||
+                          document.body.classList.contains('dark') ||
+                          document.body.classList.contains('dark-mode') ||
+                          document.documentElement.getAttribute('data-theme') === 'dark' ||
+                          (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            const newTheme = isDark ? 'dark' : 'light';
+            
+            // 只有当主题真正改变时才更新
+            if (currentTheme !== newTheme) {
+                currentTheme = newTheme;
+                updateThemeStyles(isDark);
+            }
+        }
+
+        // 更新主题样式
+        function updateThemeStyles(isDark) {
+            const container = document.querySelector('.container').parentElement;
+            if (isDark) {
+                // 深色模式颜色
+                container.style.setProperty('--bg-primary', '#0f172a');
+                container.style.setProperty('--bg-secondary', '#1e293b');
+                container.style.setProperty('--bg-tertiary', '#334155');
+                container.style.setProperty('--text-primary', '#f1f5f9');
+                container.style.setProperty('--text-secondary', '#cbd5e1');
+                container.style.setProperty('--text-muted', '#94a3b8');
+                container.style.setProperty('--border-primary', '#475569');
+                container.style.setProperty('--border-secondary', '#64748b');
+                container.style.setProperty('--shadow-color', 'rgba(0, 0, 0, 0.3)');
+                
+                // 表格相关颜色
+                container.style.setProperty('--grid-bg-even', '#334155');
+                container.style.setProperty('--grid-bg-odd', '#1e293b');
+                container.style.setProperty('--grid-border', '#475569');
+                
+                // 高亮颜色
+                container.style.setProperty('--highlight-kernel', 'rgba(96, 165, 250, 0.4)');
+                container.style.setProperty('--highlight-input', 'rgba(96, 165, 250, 0.3)');
+                container.style.setProperty('--highlight-output', '#fbbf24');
+                
+                // 按钮颜色
+                container.style.setProperty('--btn-primary-bg', '#60a5fa');
+                container.style.setProperty('--btn-primary-hover', '#3b82f6');
+                container.style.setProperty('--btn-secondary-bg', '#64748b');
+                container.style.setProperty('--btn-secondary-hover', '#475569');
+                
+                // 输入控件颜色
+                container.style.setProperty('--input-bg', '#475569');
+                container.style.setProperty('--input-thumb', '#60a5fa');
+            } else {
+                // 浅色模式颜色
+                container.style.setProperty('--bg-primary', '#f9fafb');
+                container.style.setProperty('--bg-secondary', '#ffffff');
+                container.style.setProperty('--bg-tertiary', '#f8fafc');
+                container.style.setProperty('--text-primary', '#1f2937');
+                container.style.setProperty('--text-secondary', '#6b7280');
+                container.style.setProperty('--text-muted', '#9ca3af');
+                container.style.setProperty('--border-primary', '#e5e7eb');
+                container.style.setProperty('--border-secondary', '#d1d5db');
+                container.style.setProperty('--shadow-color', 'rgba(0, 0, 0, 0.1)');
+                
+                // 表格相关颜色
+                container.style.setProperty('--grid-bg-even', '#f8fafc');
+                container.style.setProperty('--grid-bg-odd', '#ffffff');
+                container.style.setProperty('--grid-border', '#e2e8f0');
+                
+                // 高亮颜色
+                container.style.setProperty('--highlight-kernel', 'rgba(59, 130, 246, 0.3)');
+                container.style.setProperty('--highlight-input', 'rgba(59, 130, 246, 0.2)');
+                container.style.setProperty('--highlight-output', '#facc15');
+                
+                // 按钮颜色
+                container.style.setProperty('--btn-primary-bg', '#3b82f6');
+                container.style.setProperty('--btn-primary-hover', '#2563eb');
+                container.style.setProperty('--btn-secondary-bg', '#6b7280');
+                container.style.setProperty('--btn-secondary-hover', '#4b5563');
+                
+                // 输入控件颜色
+                container.style.setProperty('--input-bg', '#e5e7eb');
+                container.style.setProperty('--input-thumb', '#3b82f6');
+            }
+        }
+
+        // 防抖的主题检查
+        function startThemeMonitoring() {
+            // 初始检查
+            checkTheme();
+            
+            // 定期检查主题变化（轻量级方案）
+            setInterval(checkTheme, 500);
+            
+            // 监听系统主题变化
+            if (window.matchMedia) {
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                mediaQuery.addListener(checkTheme);
+            }
+        }
+
+        // 创建网格
+        function createGrid(container, rows, cols, contentFn) {
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'data-cell';
+                    cell.id = `${container.id}-cell-${r}-${c}`;
+                    if (contentFn) {
+                        cell.innerHTML = contentFn(r, c);
+                    }
+                    container.appendChild(cell);
+                }
+            }
+        }
+        
+        // 更新可视化
+        function updateVisualization() {
+            clearTimeout(animationTimer);
+            resetAnimationState();
+
+            const L_in = parseInt(controls.sequenceLength.value);
+            const C_in = parseInt(controls.inChannels.value);
+            const C_out = parseInt(controls.outChannels.value);
+            const K = parseInt(controls.kernelSize.value);
+            const D = parseInt(controls.dilation.value);
+
+            // 验证并调整 kernel_size 和 dilation
+            const effectiveKernelSize = (K - 1) * D + 1;
+            if (effectiveKernelSize > L_in) {
+                 // 自动减小kernel size或dilation来适应
+                if(K > 1) {
+                    controls.kernelSize.value = K - 1;
+                } else if (D > 1) {
+                    controls.dilation.value = D - 1;
+                }
+                // 重新触发更新
+                updateVisualization();
+                return;
+            }
+
+            // 计算输出长度 (无 padding, stride=1)
+            const L_out = L_in - (K - 1) * D - 1 + 1;
+
+            // 更新标签值
+            values.sequenceLength.textContent = L_in;
+            values.inChannels.textContent = C_in;
+            values.outChannels.textContent = C_out;
+            values.kernelSize.textContent = K;
+            values.dilation.textContent = D;
+
+            // 更新形状信息
+            shapes.inShapeC.textContent = C_in;
+            shapes.inShapeL.textContent = L_in;
+            shapes.kernelShapeC_out.textContent = C_out;
+            shapes.kernelShapeC_in.textContent = C_in;
+            shapes.kernelShapeK.textContent = K;
+            shapes.outShapeC.textContent = C_out;
+            shapes.outShapeL.textContent = L_out > 0 ? L_out : 0;
+
+            // 1. 渲染输入数据
+            createGrid(visualizations.input, C_in, L_in, (r, c) => `I<sub>${r},${c}</sub>`);
+
+            // 2. 渲染卷积核
+            createGrid(visualizations.kernel, C_in, K, (r, c) => `W<sub>${r},${c}</sub>`);
+            // 高亮扩张的部分
+             for (let r = 0; r < C_in; r++) {
+                for (let c = 0; c < K; c++) {
+                    const kernelCell = document.getElementById(`kernelData-cell-${r}-${c}`);
+                    if (kernelCell) {
+                         kernelCell.style.backgroundColor = 'var(--highlight-kernel)';
+                    }
+                }
+            }
+
+            // 3. 渲染输出数据
+            if (L_out > 0) {
+              createGrid(visualizations.output, C_out, L_out, (r, c) => `O<sub>${r},${c}</sub>`);
+            } else {
+              visualizations.output.innerHTML = '<div class="text-center text-red-500 p-4">输出长度小于1，无法进行卷积！请调整参数。</div>';
+            }
+        }
+        
+        function resetAnimationState() {
+            visualizations.kernelOverlay.style.display = 'none';
+            document.querySelectorAll('.data-cell').forEach(cell => {
+                cell.classList.remove('output-highlight', 'input-highlight');
+            });
+            buttons.play.disabled = false;
+            buttons.play.textContent = "播放动画";
+        }
+
+        // 播放动画
+        function playAnimation() {
+            clearTimeout(animationTimer);
+            resetAnimationState();
+
+            const L_in = parseInt(controls.sequenceLength.value);
+            const C_in = parseInt(controls.inChannels.value);
+            const C_out = parseInt(controls.outChannels.value);
+            const K = parseInt(controls.kernelSize.value);
+            const D = parseInt(controls.dilation.value);
+            
+            const effectiveKernelWidth = (K - 1) * D + 1;
+            const L_out = L_in - effectiveKernelWidth + 1;
+
+            if (L_out <= 0) {
+                alert("无法播放动画：输出长度小于等于0。");
+                return;
+            }
+
+            buttons.play.disabled = true;
+            buttons.play.textContent = "播放中...";
+
+            const inputCellWidth = visualizations.input.clientWidth / L_in;
+            const inputCellHeight = visualizations.input.clientHeight / C_in;
+            
+            const overlay = visualizations.kernelOverlay;
+            overlay.style.width = `${inputCellWidth * effectiveKernelWidth}px`;
+            overlay.style.height = `${inputCellHeight * C_in}px`;
+            overlay.style.top = '0px';
+            overlay.style.display = 'block';
+
+            let step = 0;
+
+            function animateStep() {
+                // 清除上一帧高亮
+                document.querySelectorAll('.output-highlight, .input-highlight').forEach(cell => {
+                    cell.classList.remove('output-highlight', 'input-highlight');
+                });
+                
+                if (step >= L_out) {
+                    resetAnimationState();
+                    return;
+                }
+
+                // 更新覆盖层位置
+                overlay.style.left = `${step * inputCellWidth}px`;
+
+                // 高亮相关输入和输出
+                // 高亮输入
+                for (let r = 0; r < C_in; r++) {
+                    for (let k = 0; k < K; k++) {
+                        const c = step + k * D;
+                        const inputCell = document.getElementById(`inputData-cell-${r}-${c}`);
+                        if (inputCell) {
+                           inputCell.classList.add('input-highlight');
+                        }
+                    }
+                }
+                
+                // 高亮所有输出通道的当前步
+                for (let r = 0; r < C_out; r++) {
+                    const outputCell = document.getElementById(`outputData-cell-${r}-${step}`);
+                    if (outputCell) {
+                        outputCell.classList.add('output-highlight');
+                    }
+                }
+
+                step++;
+                animationTimer = setTimeout(animateStep, 800);
+            }
+            animateStep();
+        }
+
+        // 事件监听
+        Object.values(controls).forEach(control => {
+            control.addEventListener('input', updateVisualization);
+        });
+        
+        buttons.play.addEventListener('click', playAnimation);
+        buttons.reset.addEventListener('click', () => {
+            clearTimeout(animationTimer);
+            resetAnimationState();
+        });
+        
+        window.addEventListener('resize', updateVisualization);
+
+        // 初始化
+        startThemeMonitoring();
+        updateVisualization();
+    </script>
+</body>
+</html>
