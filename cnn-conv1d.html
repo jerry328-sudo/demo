@@ -225,6 +225,14 @@
             background-color: var(--btn-secondary-hover);
         }
 
+        .home-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            align-self: flex-start;
+        }
+
         /* 输入控件样式 */
         input[type="range"] {
             background: var(--input-bg);
@@ -271,6 +279,7 @@
 <body>
 
     <div class="container mx-auto p-4 md:p-8">
+        <a href="index.html" class="home-button btn-primary px-4 py-2 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-transform transform hover:scale-105 mb-6">返回主页</a>
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-900">一维卷积 (nn.Conv1d) 可视化工具</h1>
             <p class="mt-2 text-lg text-gray-600">通过交互式调整参数，理解 Conv1d 的工作原理。</p>

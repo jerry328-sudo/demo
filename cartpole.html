@@ -61,7 +61,8 @@
       gap: 0.6rem;
     }
 
-    button {
+    button,
+    .home-button {
       padding: 0.6rem 1rem;
       font-size: 0.95rem;
       background: linear-gradient(145deg, #38bdf8, #2563eb);
@@ -70,6 +71,7 @@
       border-radius: 10px;
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+      text-decoration: none;
     }
 
     button:disabled {
@@ -77,9 +79,18 @@
       cursor: default;
     }
 
-    button:not(:disabled):hover {
+    button:not(:disabled):hover,
+    .home-button:hover {
       transform: translateY(-2px);
       box-shadow: 0 12px 30px rgba(56, 189, 248, 0.35);
+    }
+
+    .home-button {
+      align-self: flex-start;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      border: none;
     }
 
     .stats {
@@ -664,6 +675,7 @@
 }
 </style></head>
 <body>
+  <a class="home-button" href="index.html">返回主页</a>
   <h1>强化学习演示：多层感知机平衡小车-倒立摆</h1>
   <div class="layout">
     <div class="main-column">
