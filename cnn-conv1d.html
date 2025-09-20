@@ -320,10 +320,19 @@
                     <input type="range" id="dilation" min="1" max="5" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                     <span id="dilationValue" class="ml-4 font-semibold w-8 text-center">1</span>
                 </div>
+                <!-- 参数: padding -->
+                <div class="flex items-center">
+                    <label for="padding" class="param-label font-medium">填充 (Padding):</label>
+                    <input type="range" id="padding" min="0" max="10" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="paddingValue" class="ml-4 font-semibold w-8 text-center">0</span>
+                </div>
                 <!-- 动画控制 -->
                 <div class="md:col-span-2 flex items-center justify-center space-x-4 mt-4">
                     <button id="playAnimation" class="btn-primary px-6 py-2 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-transform transform hover:scale-105">
                         播放动画
+                    </button>
+                    <button id="pauseAnimation" class="btn-secondary px-6 py-2 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                        暂停
                     </button>
                     <button id="resetAnimation" class="btn-secondary px-6 py-2 font-semibold rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-opacity-75 transition-transform transform hover:scale-105">
                         重置
@@ -380,6 +389,7 @@
             outChannels: document.getElementById('outChannels'),
             kernelSize: document.getElementById('kernelSize'),
             dilation: document.getElementById('dilation'),
+            padding: document.getElementById('padding'),
         };
 
         const values = {
@@ -388,6 +398,7 @@
             outChannels: document.getElementById('outChannelsValue'),
             kernelSize: document.getElementById('kernelSizeValue'),
             dilation: document.getElementById('dilationValue'),
+            padding: document.getElementById('paddingValue'),
         };
 
         const visualizations = {
@@ -409,12 +420,16 @@
 
         const buttons = {
             play: document.getElementById('playAnimation'),
+            pause: document.getElementById('pauseAnimation'),
             reset: document.getElementById('resetAnimation'),
         };
 
         let animationTimer = null;
         let themeCheckTimer = null;
         let currentTheme = null;
+        let isPaused = false;
+        let isAnimating = false;
+        let animationState = null; // 保存当前动画状态以支持暂停/继续
 
         // 简化的主题检测
         function checkTheme() {
@@ -543,10 +558,11 @@
             const C_out = parseInt(controls.outChannels.value);
             const K = parseInt(controls.kernelSize.value);
             const D = parseInt(controls.dilation.value);
+            const P = parseInt(controls.padding.value);
 
             // 验证并调整 kernel_size 和 dilation
             const effectiveKernelSize = (K - 1) * D + 1;
-            if (effectiveKernelSize > L_in) {
+            if (effectiveKernelSize > L_in + 2 * P) {
                  // 自动减小kernel size或dilation来适应
                 if(K > 1) {
                     controls.kernelSize.value = K - 1;
@@ -558,8 +574,8 @@
                 return;
             }
 
-            // 计算输出长度 (无 padding, stride=1)
-            const L_out = L_in - (K - 1) * D - 1 + 1;
+            // 计算输出长度 (stride=1)
+            const L_out = L_in + 2 * P - (K - 1) * D;
 
             // 更新标签值
             values.sequenceLength.textContent = L_in;
@@ -567,6 +583,7 @@
             values.outChannels.textContent = C_out;
             values.kernelSize.textContent = K;
             values.dilation.textContent = D;
+            values.padding.textContent = P;
 
             // 更新形状信息
             shapes.inShapeC.textContent = C_in;
@@ -607,6 +624,55 @@
             });
             buttons.play.disabled = false;
             buttons.play.textContent = "播放动画";
+            if (buttons.pause) buttons.pause.textContent = "暂停";
+            isPaused = false;
+            isAnimating = false;
+            animationState = null;
+        }
+
+        // 单步动画逻辑（支持暂停/继续）
+        function runAnimationStep() {
+            if (!animationState || isPaused) return;
+
+            const { L_in, C_in, C_out, K, D, P, L_out, inputCellWidth } = animationState;
+
+            // 清除上一帧高亮
+            document.querySelectorAll('.output-highlight, .input-highlight').forEach(cell => {
+                cell.classList.remove('output-highlight', 'input-highlight');
+            });
+
+            if (animationState.step >= L_out) {
+                resetAnimationState();
+                return;
+            }
+
+            // 更新覆盖层位置（考虑padding带来的偏移）
+            const overlay = visualizations.kernelOverlay;
+            overlay.style.left = `${(animationState.step - P) * inputCellWidth}px`;
+
+            // 高亮输入（跳过被padding填充的越界索引）
+            for (let r = 0; r < C_in; r++) {
+                for (let k = 0; k < K; k++) {
+                    const c = animationState.step - P + k * D;
+                    if (c >= 0 && c < L_in) {
+                        const inputCell = document.getElementById(`inputData-cell-${r}-${c}`);
+                        if (inputCell) {
+                            inputCell.classList.add('input-highlight');
+                        }
+                    }
+                }
+            }
+
+            // 高亮所有输出通道的当前步
+            for (let r = 0; r < C_out; r++) {
+                const outputCell = document.getElementById(`outputData-cell-${r}-${animationState.step}`);
+                if (outputCell) {
+                    outputCell.classList.add('output-highlight');
+                }
+            }
+
+            animationState.step++;
+            animationTimer = setTimeout(runAnimationStep, 800);
         }
 
         // 播放动画
@@ -619,9 +685,10 @@
             const C_out = parseInt(controls.outChannels.value);
             const K = parseInt(controls.kernelSize.value);
             const D = parseInt(controls.dilation.value);
-            
+            const P = parseInt(controls.padding.value);
+
             const effectiveKernelWidth = (K - 1) * D + 1;
-            const L_out = L_in - effectiveKernelWidth + 1;
+            const L_out = L_in + 2 * P - effectiveKernelWidth + 1;
 
             if (L_out <= 0) {
                 alert("无法播放动画：输出长度小于等于0。");
@@ -630,6 +697,9 @@
 
             buttons.play.disabled = true;
             buttons.play.textContent = "播放中...";
+            if (buttons.pause) buttons.pause.textContent = "暂停";
+            isPaused = false;
+            isAnimating = true;
 
             const inputCellWidth = visualizations.input.clientWidth / L_in;
             const inputCellHeight = visualizations.input.clientHeight / C_in;
@@ -640,46 +710,14 @@
             overlay.style.top = '0px';
             overlay.style.display = 'block';
 
-            let step = 0;
+            animationState = {
+                step: 0,
+                L_in, C_in, C_out, K, D, P, L_out,
+                inputCellWidth, inputCellHeight,
+                effectiveKernelWidth
+            };
 
-            function animateStep() {
-                // 清除上一帧高亮
-                document.querySelectorAll('.output-highlight, .input-highlight').forEach(cell => {
-                    cell.classList.remove('output-highlight', 'input-highlight');
-                });
-                
-                if (step >= L_out) {
-                    resetAnimationState();
-                    return;
-                }
-
-                // 更新覆盖层位置
-                overlay.style.left = `${step * inputCellWidth}px`;
-
-                // 高亮相关输入和输出
-                // 高亮输入
-                for (let r = 0; r < C_in; r++) {
-                    for (let k = 0; k < K; k++) {
-                        const c = step + k * D;
-                        const inputCell = document.getElementById(`inputData-cell-${r}-${c}`);
-                        if (inputCell) {
-                           inputCell.classList.add('input-highlight');
-                        }
-                    }
-                }
-                
-                // 高亮所有输出通道的当前步
-                for (let r = 0; r < C_out; r++) {
-                    const outputCell = document.getElementById(`outputData-cell-${r}-${step}`);
-                    if (outputCell) {
-                        outputCell.classList.add('output-highlight');
-                    }
-                }
-
-                step++;
-                animationTimer = setTimeout(animateStep, 800);
-            }
-            animateStep();
+            runAnimationStep();
         }
 
         // 事件监听
@@ -688,6 +726,22 @@
         });
         
         buttons.play.addEventListener('click', playAnimation);
+        if (buttons.pause) {
+            buttons.pause.addEventListener('click', () => {
+                if (!isAnimating || !animationState) return;
+                if (!isPaused) {
+                    isPaused = true;
+                    clearTimeout(animationTimer);
+                    buttons.pause.textContent = "继续";
+                    buttons.play.textContent = "已暂停";
+                } else {
+                    isPaused = false;
+                    buttons.pause.textContent = "暂停";
+                    buttons.play.textContent = "播放中...";
+                    runAnimationStep();
+                }
+            });
+        }
         buttons.reset.addEventListener('click', () => {
             clearTimeout(animationTimer);
             resetAnimationState();
