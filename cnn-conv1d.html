@@ -9,47 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* 亮色模式颜色变量 */
-            --bg-primary: #f9fafb;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f8fafc;
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-            --text-muted: #9ca3af;
-            --border-primary: #e5e7eb;
-            --border-secondary: #d1d5db;
-            --accent-primary: #3b82f6;
-            --accent-secondary: #2563eb;
-            --accent-hover: #1d4ed8;
-            --shadow-color: rgba(0, 0, 0, 0.1);
-            
-            /* 网格相关颜色 */
-            --grid-bg-even: #f8fafc;
-            --grid-bg-odd: #ffffff;
-            --grid-border: #e2e8f0;
-            
-            /* 高亮颜色 */
-            --highlight-kernel: rgba(59, 130, 246, 0.3);
-            --highlight-input: rgba(59, 130, 246, 0.2);
-            --highlight-output: #facc15;
-            
-            /* 按钮颜色 */
-            --btn-primary-bg: #3b82f6;
-            --btn-primary-hover: #2563eb;
-            --btn-secondary-bg: #6b7280;
-            --btn-secondary-hover: #4b5563;
-            
-            /* 输入控件颜色 */
-            --input-bg: #e5e7eb;
-            --input-thumb: #3b82f6;
-        }
-
-        /* 夜间模式CSS支持 */
-        .dark, 
-        [data-theme="dark"],
-        .dark-mode,
-        html.dark,
-        body.dark {
             --bg-primary: #0f172a;
             --bg-secondary: #1e293b;
             --bg-tertiary: #334155;
@@ -62,60 +21,26 @@
             --accent-secondary: #3b82f6;
             --accent-hover: #2563eb;
             --shadow-color: rgba(0, 0, 0, 0.3);
-            
+
             /* 网格相关颜色 */
             --grid-bg-even: #334155;
             --grid-bg-odd: #1e293b;
             --grid-border: #475569;
-            
+
             /* 高亮颜色 */
             --highlight-kernel: rgba(96, 165, 250, 0.4);
             --highlight-input: rgba(96, 165, 250, 0.3);
             --highlight-output: #fbbf24;
-            
+
             /* 按钮颜色 */
             --btn-primary-bg: #60a5fa;
             --btn-primary-hover: #3b82f6;
             --btn-secondary-bg: #64748b;
             --btn-secondary-hover: #475569;
-            
+
             /* 输入控件颜色 */
             --input-bg: #475569;
             --input-thumb: #60a5fa;
-        }
-
-        /* 使用媒体查询检测系统夜间模式偏好 */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-primary: #0f172a;
-                --bg-secondary: #1e293b;
-                --bg-tertiary: #334155;
-                --text-primary: #f1f5f9;
-                --text-secondary: #cbd5e1;
-                --text-muted: #94a3b8;
-                --border-primary: #475569;
-                --border-secondary: #64748b;
-                --accent-primary: #60a5fa;
-                --accent-secondary: #3b82f6;
-                --accent-hover: #2563eb;
-                --shadow-color: rgba(0, 0, 0, 0.3);
-                
-                --grid-bg-even: #334155;
-                --grid-bg-odd: #1e293b;
-                --grid-border: #475569;
-                
-                --highlight-kernel: rgba(96, 165, 250, 0.4);
-                --highlight-input: rgba(96, 165, 250, 0.3);
-                --highlight-output: #fbbf24;
-                
-                --btn-primary-bg: #60a5fa;
-                --btn-primary-hover: #3b82f6;
-                --btn-secondary-bg: #64748b;
-                --btn-secondary-hover: #475569;
-                
-                --input-bg: #475569;
-                --input-thumb: #60a5fa;
-            }
         }
 
         body {
@@ -432,111 +357,9 @@
         };
 
         let animationTimer = null;
-        let themeCheckTimer = null;
-        let currentTheme = null;
         let isPaused = false;
         let isAnimating = false;
         let animationState = null; // 保存当前动画状态以支持暂停/继续
-
-        // 简化的主题检测
-        function checkTheme() {
-            const isDark = document.documentElement.classList.contains('dark') ||
-                          document.body.classList.contains('dark') ||
-                          document.body.classList.contains('dark-mode') ||
-                          document.documentElement.getAttribute('data-theme') === 'dark' ||
-                          (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            
-            const newTheme = isDark ? 'dark' : 'light';
-            
-            // 只有当主题真正改变时才更新
-            if (currentTheme !== newTheme) {
-                currentTheme = newTheme;
-                updateThemeStyles(isDark);
-            }
-        }
-
-        // 更新主题样式
-        function updateThemeStyles(isDark) {
-            const container = document.querySelector('.container').parentElement;
-            if (isDark) {
-                // 深色模式颜色
-                container.style.setProperty('--bg-primary', '#0f172a');
-                container.style.setProperty('--bg-secondary', '#1e293b');
-                container.style.setProperty('--bg-tertiary', '#334155');
-                container.style.setProperty('--text-primary', '#f1f5f9');
-                container.style.setProperty('--text-secondary', '#cbd5e1');
-                container.style.setProperty('--text-muted', '#94a3b8');
-                container.style.setProperty('--border-primary', '#475569');
-                container.style.setProperty('--border-secondary', '#64748b');
-                container.style.setProperty('--shadow-color', 'rgba(0, 0, 0, 0.3)');
-                
-                // 表格相关颜色
-                container.style.setProperty('--grid-bg-even', '#334155');
-                container.style.setProperty('--grid-bg-odd', '#1e293b');
-                container.style.setProperty('--grid-border', '#475569');
-                
-                // 高亮颜色
-                container.style.setProperty('--highlight-kernel', 'rgba(96, 165, 250, 0.4)');
-                container.style.setProperty('--highlight-input', 'rgba(96, 165, 250, 0.3)');
-                container.style.setProperty('--highlight-output', '#fbbf24');
-                
-                // 按钮颜色
-                container.style.setProperty('--btn-primary-bg', '#60a5fa');
-                container.style.setProperty('--btn-primary-hover', '#3b82f6');
-                container.style.setProperty('--btn-secondary-bg', '#64748b');
-                container.style.setProperty('--btn-secondary-hover', '#475569');
-                
-                // 输入控件颜色
-                container.style.setProperty('--input-bg', '#475569');
-                container.style.setProperty('--input-thumb', '#60a5fa');
-            } else {
-                // 浅色模式颜色
-                container.style.setProperty('--bg-primary', '#f9fafb');
-                container.style.setProperty('--bg-secondary', '#ffffff');
-                container.style.setProperty('--bg-tertiary', '#f8fafc');
-                container.style.setProperty('--text-primary', '#1f2937');
-                container.style.setProperty('--text-secondary', '#6b7280');
-                container.style.setProperty('--text-muted', '#9ca3af');
-                container.style.setProperty('--border-primary', '#e5e7eb');
-                container.style.setProperty('--border-secondary', '#d1d5db');
-                container.style.setProperty('--shadow-color', 'rgba(0, 0, 0, 0.1)');
-                
-                // 表格相关颜色
-                container.style.setProperty('--grid-bg-even', '#f8fafc');
-                container.style.setProperty('--grid-bg-odd', '#ffffff');
-                container.style.setProperty('--grid-border', '#e2e8f0');
-                
-                // 高亮颜色
-                container.style.setProperty('--highlight-kernel', 'rgba(59, 130, 246, 0.3)');
-                container.style.setProperty('--highlight-input', 'rgba(59, 130, 246, 0.2)');
-                container.style.setProperty('--highlight-output', '#facc15');
-                
-                // 按钮颜色
-                container.style.setProperty('--btn-primary-bg', '#3b82f6');
-                container.style.setProperty('--btn-primary-hover', '#2563eb');
-                container.style.setProperty('--btn-secondary-bg', '#6b7280');
-                container.style.setProperty('--btn-secondary-hover', '#4b5563');
-                
-                // 输入控件颜色
-                container.style.setProperty('--input-bg', '#e5e7eb');
-                container.style.setProperty('--input-thumb', '#3b82f6');
-            }
-        }
-
-        // 防抖的主题检查
-        function startThemeMonitoring() {
-            // 初始检查
-            checkTheme();
-            
-            // 定期检查主题变化（轻量级方案）
-            setInterval(checkTheme, 500);
-            
-            // 监听系统主题变化
-            if (window.matchMedia) {
-                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                mediaQuery.addListener(checkTheme);
-            }
-        }
 
         // 创建网格
         function createGrid(container, rows, cols, contentFn) {
@@ -775,7 +598,6 @@
         window.addEventListener('resize', updateVisualization);
 
         // 初始化
-        startThemeMonitoring();
         updateVisualization();
     </script>
 </body>
