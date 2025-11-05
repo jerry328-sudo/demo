@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Three.js 布里渊区采点演示</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0b1120;
+        color: #e5e7eb;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #ui {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(15, 23, 42, 0.85);
+        padding: 14px 18px;
+        border-radius: 10px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(5px);
+      }
+      #ui button,
+      #ui select,
+      #ui input {
+        margin-right: 8px;
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #ui button {
+        padding: 6px 14px;
+        background: #38bdf8;
+        color: #0f172a;
+      }
+      #ui button:last-child {
+        margin-right: 0;
+      }
+      #reset {
+        background: #ef4444;
+      }
+      #ui select,
+      #ui input {
+        background: rgba(30, 41, 59, 0.75);
+        color: #e2e8f0;
+        font-weight: 500;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+      }
+      #ui input {
+        width: 52px;
+        text-align: center;
+      }
+      #ui span {
+        display: inline-block;
+        margin-left: 10px;
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <select id="method">
+        <option value="monkhorst">Monkhorst-Pack</option>
+        <option value="gamma">Γ 点采样</option>
+      </select>
+      <label style="font-size: 12px; color: #94a3b8; margin-right: 4px;">网格</label>
+      <input id="nx" type="number" min="1" value="4" />
+      <input id="ny" type="number" min="1" value="4" />
+      <input id="nz" type="number" min="1" value="4" />
+      <label style="font-size: 12px; color: #94a3b8; margin-right: 4px;">颜色</label>
+      <input id="color" type="color" value="#22d3ee" />
+      <label style="font-size: 12px; color: #94a3b8; margin-right: 4px;">透明度</label>
+      <input id="opacity" type="range" min="0" max="1" step="0.05" value="0.8" />
+      <button id="reset">清空</button>
+      <span id="counter">采样点数：0</span>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+          "three/examples/jsm/": "https://unpkg.com/three@0.152.2/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+      import { ConvexGeometry } from "three/examples/jsm/geometries/ConvexGeometry.js";
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b1120);
+
+      const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(2.8, 2.4, 3.4);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      document.body.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      dirLight.position.set(3, 5, 2);
+      scene.add(dirLight);
+
+      // 构造金刚石（面心立方）晶胞的第一布里渊区：截角八面体
+      const bzVertices = [
+        // x = +1 square face
+        [1, 0.5, 0],
+        [1, -0.5, 0],
+        [1, 0, 0.5],
+        [1, 0, -0.5],
+        // x = -1
+        [-1, 0.5, 0],
+        [-1, -0.5, 0],
+        [-1, 0, 0.5],
+        [-1, 0, -0.5],
+        // y = +1
+        [0.5, 1, 0],
+        [-0.5, 1, 0],
+        [0, 1, 0.5],
+        [0, 1, -0.5],
+        // y = -1
+        [0.5, -1, 0],
+        [-0.5, -1, 0],
+        [0, -1, 0.5],
+        [0, -1, -0.5],
+        // z = +1
+        [0.5, 0, 1],
+        [-0.5, 0, 1],
+        [0, 0.5, 1],
+        [0, -0.5, 1],
+        // z = -1
+        [0.5, 0, -1],
+        [-0.5, 0, -1],
+        [0, 0.5, -1],
+        [0, -0.5, -1],
+      ].map(([x, y, z]) => new THREE.Vector3(x, y, z));
+
+      const bzGeometry = new ConvexGeometry(bzVertices);
+      const bzMaterial = new THREE.MeshStandardMaterial({
+        color: 0x1d4ed8,
+        transparent: true,
+        opacity: 0.15,
+        side: THREE.DoubleSide,
+        metalness: 0.1,
+        roughness: 0.4,
+        depthWrite: false,
+      });
+      const bzMesh = new THREE.Mesh(bzGeometry, bzMaterial);
+      scene.add(bzMesh);
+
+      const bzEdges = new THREE.EdgesGeometry(bzGeometry);
+      const bzWireframe = new THREE.LineSegments(
+        bzEdges,
+        new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 1 })
+      );
+      scene.add(bzWireframe);
+
+      // 绘制 Γ 点
+      const gammaMaterial = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xfbbf24, emissiveIntensity: 0.4 });
+      const gammaSphere = new THREE.Mesh(new THREE.SphereGeometry(0.08, 32, 16), gammaMaterial);
+      gammaSphere.position.set(0, 0, 0);
+      scene.add(gammaSphere);
+
+      // 坐标轴
+      const axesHelper = new THREE.AxesHelper(1.5);
+      scene.add(axesHelper);
+
+      const samplingGroup = new THREE.Group();
+      scene.add(samplingGroup);
+
+      const resetButton = document.getElementById("reset");
+      const methodSelect = document.getElementById("method");
+      const nxInput = document.getElementById("nx");
+      const nyInput = document.getElementById("ny");
+      const nzInput = document.getElementById("nz");
+      const colorInput = document.getElementById("color");
+      const opacityInput = document.getElementById("opacity");
+      const counterLabel = document.getElementById("counter");
+
+      let sampleCount = 0;
+      let samplingQueue = [];
+      let totalSamples = 0;
+
+      function updateCounter() {
+        const suffix = totalSamples > 0 ? " / " + totalSamples : "";
+        counterLabel.textContent = "采样点数：" + sampleCount + suffix;
+      }
+
+      function parseMeshValue(input) {
+        const parsed = Math.max(1, Math.floor(Number(input.value) || 1));
+        input.value = parsed;
+        return parsed;
+      }
+
+      methodSelect.addEventListener("change", rebuildSamplingVisualization);
+      [nxInput, nyInput, nzInput].forEach((input) => {
+        input.addEventListener("change", rebuildSamplingVisualization);
+      });
+
+      // fcc reciprocal basis (up to scale): b1=(0,1,1), b2=(1,0,1), b3=(1,1,0)
+      function fracToCartFCC(f1, f2, f3) {
+        const x = f2 + f3;
+        const y = f1 + f3;
+        const z = f1 + f2;
+        return new THREE.Vector3(x, y, z);
+      }
+
+      // Fold a k-point into the first BZ of bcc (truncated octahedron) by stepping across the 14 bisector planes
+      function foldToFirstBZ_FCC(vec) {
+        const v = vec.clone();
+        let iter = 0;
+        while (iter++ < 20) {
+          let moved = false;
+          if (v.x > 1) { v.x -= 2; moved = true; } else if (v.x < -1) { v.x += 2; moved = true; }
+          if (v.y > 1) { v.y -= 2; moved = true; } else if (v.y < -1) { v.y += 2; moved = true; }
+          if (v.z > 1) { v.z -= 2; moved = true; } else if (v.z < -1) { v.z += 2; moved = true; }
+
+          const signs = [1, -1];
+          for (const sx of signs) {
+            for (const sy of signs) {
+              for (const sz of signs) {
+                const s = sx * v.x + sy * v.y + sz * v.z;
+                if (s > 1.5 + 1e-9) { v.x -= sx; v.y -= sy; v.z -= sz; moved = true; }
+                else if (s < -1.5 - 1e-9) { v.x += sx; v.y += sy; v.z += sz; moved = true; }
+              }
+            }
+          }
+          if (!moved) break;
+        }
+        return v;
+      }
+
+      function generateMonkhorstPackGrid(nx, ny, nz) {
+        const unique = new Set();
+        const points = [];
+        for (let ix = 1; ix <= nx; ix++) {
+          const f1 = (2 * ix - nx - 1) / (2 * nx);
+          for (let iy = 1; iy <= ny; iy++) {
+            const f2 = (2 * iy - ny - 1) / (2 * ny);
+            for (let iz = 1; iz <= nz; iz++) {
+              const f3 = (2 * iz - nz - 1) / (2 * nz);
+              const cart = fracToCartFCC(f1, f2, f3);
+              const folded = foldToFirstBZ_FCC(cart);
+              const key = `${folded.x.toFixed(6)},${folded.y.toFixed(6)},${folded.z.toFixed(6)}`;
+              if (!unique.has(key)) {
+                unique.add(key);
+                points.push(folded);
+              }
+            }
+          }
+        }
+        return points;
+      }
+
+      function generateGammaCenteredGrid(nx, ny, nz) {
+        const points = [];
+        const uniqueKey = new Set();
+
+        function wrapToHalf(value) {
+          let wrapped = value;
+          if (wrapped >= 0.5) wrapped -= 1;
+          if (wrapped < -0.5) wrapped += 1;
+          return wrapped;
+        }
+
+        for (let ix = 1; ix <= nx; ix++) {
+          const f1 = wrapToHalf((ix - 1) / nx);
+          for (let iy = 1; iy <= ny; iy++) {
+            const f2 = wrapToHalf((iy - 1) / ny);
+            for (let iz = 1; iz <= nz; iz++) {
+              const f3 = wrapToHalf((iz - 1) / nz);
+              const cart = fracToCartFCC(f1, f2, f3);
+              const folded = foldToFirstBZ_FCC(cart);
+              const key = `${folded.x.toFixed(6)},${folded.y.toFixed(6)},${folded.z.toFixed(6)}`;
+              if (!uniqueKey.has(key)) {
+                uniqueKey.add(key);
+                points.push(folded);
+              }
+            }
+          }
+        }
+        return points;
+      }
+
+      function buildSamplingQueue() {
+        const nx = parseMeshValue(nxInput);
+        const ny = parseMeshValue(nyInput);
+        const nz = parseMeshValue(nzInput);
+        const method = methodSelect.value;
+
+        const points =
+          method === "gamma"
+            ? generateGammaCenteredGrid(nx, ny, nz)
+            : generateMonkhorstPackGrid(nx, ny, nz);
+
+        points.sort((a, b) => a.lengthSq() - b.lengthSq());
+        return points;
+      }
+
+      function materialFromControls() {
+        const color = new THREE.Color(colorInput.value);
+        const opacity = Number(opacityInput.value);
+        const depthWrite = opacity >= 0.99;
+        return new THREE.MeshStandardMaterial({
+          color,
+          emissive: color.clone().multiplyScalar(0.35),
+          emissiveIntensity: 0.6,
+          transparent: opacity < 1,
+          opacity,
+          metalness: 0.1,
+          roughness: 0.3,
+          depthWrite,
+        });
+      }
+
+      function clearSamplingGroup() {
+        const geometries = new Set();
+        const materials = new Set();
+
+        samplingGroup.children.forEach((child) => {
+          if (child.geometry) {
+            geometries.add(child.geometry);
+          }
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach((mat) => materials.add(mat));
+            } else {
+              materials.add(child.material);
+            }
+          }
+        });
+
+        samplingGroup.clear();
+
+        geometries.forEach((geometry) => geometry.dispose());
+        materials.forEach((material) => material.dispose());
+      }
+
+      function rebuildSamplingVisualization() {
+        clearSamplingGroup();
+        samplingQueue = buildSamplingQueue();
+        sampleCount = samplingQueue.length;
+        totalSamples = samplingQueue.length;
+
+        if (samplingQueue.length === 0) {
+          updateCounter();
+          return;
+        }
+
+        const sphereGeom = new THREE.SphereGeometry(0.045, 18, 12);
+        const sphereMat = materialFromControls();
+        if (sphereMat.transparent) {
+          sphereMat.depthWrite = false;
+        }
+        sphereMat.needsUpdate = true;
+
+        const lineOpacity = Math.min(0.85, Math.max(0.25, sphereMat.opacity + (sphereMat.transparent ? 0.2 : 0)));
+        const lineMat = new THREE.LineBasicMaterial({
+          color: sphereMat.color.clone().multiplyScalar(0.45),
+          transparent: lineOpacity < 1,
+          opacity: lineOpacity,
+          depthWrite: false,
+        });
+        lineMat.needsUpdate = true;
+
+        samplingQueue.forEach((pt) => {
+          const sampleSphere = new THREE.Mesh(sphereGeom, sphereMat);
+          sampleSphere.position.copy(pt);
+          samplingGroup.add(sampleSphere);
+
+          const lineGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), pt.clone()]);
+          const line = new THREE.Line(lineGeom, lineMat);
+          samplingGroup.add(line);
+        });
+
+        updateCounter();
+      }
+
+      [colorInput, opacityInput].forEach((input) => {
+        input.addEventListener("input", () => {
+          rebuildSamplingVisualization();
+        });
+      });
+
+      function resetSampling() {
+        clearSamplingGroup();
+        sampleCount = 0;
+        samplingQueue = [];
+        totalSamples = 0;
+        updateCounter();
+      }
+
+      resetButton.addEventListener("click", resetSampling);
+
+      // 初始化一次显示
+      rebuildSamplingVisualization();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
