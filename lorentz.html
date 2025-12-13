@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>1+1 维洛伦兹时空（Minkowski 图）</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #070a12;
+        --panel: rgba(17, 24, 39, 0.82);
+        --border: rgba(148, 163, 184, 0.22);
+        --text: #e5e7eb;
+        --muted: rgba(229, 231, 235, 0.72);
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 1fr min(360px, 42vw);
+      }
+      #canvas {
+        position: relative;
+        overflow: hidden;
+      }
+      #hud {
+        padding: 14px 14px 18px;
+        background: var(--panel);
+        border-left: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+        overflow: auto;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        letter-spacing: 0.2px;
+      }
+      .row {
+        display: grid;
+        gap: 8px;
+        margin: 10px 0;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      input[type="range"] {
+        width: 100%;
+      }
+      fieldset {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        margin: 12px 0;
+      }
+      legend {
+        padding: 0 6px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .inline {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      input[type="number"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 8px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.35);
+        color: var(--text);
+      }
+      .readout {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+      .legend {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+        font-size: 12px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+      .key {
+        display: inline-block;
+        min-width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+      @media (max-width: 980px) {
+        #app {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr auto;
+        }
+        #hud {
+          border-left: none;
+          border-top: 1px solid var(--border);
+        }
+      }
+    </style>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="canvas" aria-label="spacetime-canvas"></div>
+      <aside id="hud">
+        <h1>1+1 维洛伦兹时空（Minkowski 图）</h1>
+
+        <div class="row">
+          <label>
+            相对速度 <span id="vText"></span>
+            <input id="v" type="range" min="-0.99" max="0.99" step="0.01" value="0.60" />
+          </label>
+          <div class="readout">γ = <span id="gammaText"></span>（当 |v| → 1 时 γ → ∞，对应"接近光速但不跨越光速"）</div>
+          <div class="readout">操作：拖拽平移，滚轮缩放</div>
+        </div>
+
+        <fieldset>
+          <legend>事件 (x, t)（取 c = 1，所以光线满足 x = ±t）</legend>
+          <div class="inline">
+            <label>
+              x
+              <input id="eventX" type="number" min="-10" max="10" step="0.5" value="4" />
+            </label>
+            <label>
+              t
+              <input id="eventT" type="number" min="-10" max="10" step="0.5" value="6" />
+            </label>
+          </div>
+          <div class="readout">(x′, t′) = (<span id="eventXp"></span>, <span id="eventTp"></span>)</div>
+          <div class="readout">s² = t² − x² = <span id="s2"></span>；t′² − x′² = <span id="s2p"></span></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>双曲线（洛伦兹"超曲旋转"，保持 t² − x² 不变）</legend>
+          <label><input id="showHyperbolas" type="checkbox" checked /> 显示双曲线 t² − x² = a² 与 x² − t² = a²</label>
+          <label><input id="showTPrimeCone" type="checkbox" checked /> 显示以 t′ 轴紫色点为中心的光锥（同样满足 x−x₀=±(t−t₀)）</label>
+          <div class="inline">
+            <label>
+              a
+              <input id="hyperbolaA" type="number" min="0.5" max="9.5" step="0.5" value="4" />
+            </label>
+            <div class="readout">η = <span id="rapidityText"></span>（v = tanh η）</div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>速度变换（u = dx/dt，取 c = 1）</legend>
+          <label>
+            物体速度 <span id="uText"></span>
+            <input id="u" type="range" min="-1" max="1" step="0.01" value="0.30" />
+          </label>
+          <div class="readout">u′ = (u − v)/(1 − u v) = <span id="uPrimeText"></span></div>
+          <div class="readout">取 dt=1：dx=u，dx′=<span id="dxPrimeText"></span>，dt′=<span id="dtPrimeText"></span>（u′=dx′/dt′）</div>
+        </fieldset>
+
+        <div class="row">
+          <label><input id="showPrimeGrid" type="checkbox" checked /> 显示 (x′, t′) 网格</label>
+          <label><input id="showSuperluminal" type="checkbox" checked /> 显示超光速示例（红色虚线，物理上不可实现）</label>
+        </div>
+
+        <div class="legend">
+          <div><span class="key" style="background: #fbbf24"></span>光锥边界（光速极限）</div>
+          <div><span class="key" style="background: #e5e7eb"></span>静止系坐标轴（x, t）</div>
+          <div><span class="key" style="background: #22d3ee"></span>t′ 轴（随速度 v 倾斜，|v|→1 时逼近光线）</div>
+          <div><span class="key" style="background: #fb7185"></span>x′ 轴（相对论同时面）</div>
+          <div><span class="key" style="background: #a78bfa"></span>双曲线（boost 的"半径"：t²−x² 与 x²−t² 不变）</div>
+          <div><span class="key" style="background: #a78bfa"></span>t′ 点光锥（以紫色点为中心）</div>
+          <div><span class="key" style="background: #34d399"></span>物体世界线（u = dx/dt，u′ 用速度合成公式计算）</div>
+          <div><span class="key" style="background: #f97316"></span>事件点（可改 x/t 输入）</div>
+        </div>
+      </aside>
+    </div>
+
+    <script type="module" src="./js/lorentz/main.js"></script>
+  </body>
+</html>
