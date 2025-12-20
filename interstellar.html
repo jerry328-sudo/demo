@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星际旅行燃料计算器 | Patrick's Demo</title>
+  <link rel="icon" type="image/webp" href="cropped-logo1.webp">
+  <link rel="stylesheet" href="css/main.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+  </script>
+  <script src="js/main.js" defer></script>
+  <style>
+    :root {
+      --space-bg: #0b0d17;
+      --star-color: #ffffff;
+      --accent-blue: #4cc9f0;
+      --accent-purple: #7209b7;
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+      background-color: var(--space-bg);
+      background-image:
+        radial-gradient(white, rgba(255, 255, 255, .2) 2px, transparent 3px),
+        radial-gradient(white, rgba(255, 255, 255, .15) 1px, transparent 2px),
+        radial-gradient(white, rgba(255, 255, 255, .1) 2px, transparent 3px);
+      background-size: 550px 550px, 350px 350px, 250px 250px;
+      background-position: 0 0, 40px 60px, 130px 270px;
+      color: #e0e0e0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .calculator-container {
+      max-width: 800px;
+      margin: 4rem auto;
+      padding: 2rem;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    h1 {
+      text-align: center;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 2.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .input-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #a0a0a0;
+      font-weight: 500;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="number"],
+    select {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      font-size: 1rem;
+      width: 100%;
+    }
+
+    input[type="number"]:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(76, 201, 240, 0.2);
+    }
+
+    button.calculate-btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: white;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-top: 1rem;
+    }
+
+    button.calculate-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(114, 9, 183, 0.4);
+    }
+
+    .results-panel {
+      margin-top: 2rem;
+      border-top: 1px solid var(--glass-border);
+      padding-top: 2rem;
+      display: none;
+      /* Hidden by default */
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .result-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--accent-blue);
+    }
+
+    .result-card.danger {
+      border-left-color: #f72585;
+    }
+
+    .result-label {
+      font-size: 0.9rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .result-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0.5rem 0;
+      color: white;
+    }
+
+    .result-unit {
+      font-size: 1rem;
+      color: #aaa;
+    }
+
+    .info-box {
+      margin-top: 3rem;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #bbb;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1.5rem;
+      border-radius: 12px;
+    }
+
+    .back-link {
+      display: block;
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Range slider styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      cursor: pointer;
+      margin-top: -8px;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: var(--glass-border);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="calculator-container">
+    <h1>星际航行燃料计算器</h1>
+    <p style="text-align: center; color: #888; margin-bottom: 2rem;">
+      基于齐奥尔科夫斯基火箭方程（相对论形式），计算在光子火箭推进下的质量比。
+    </p>
+
+    <div class="input-group">
+      <label for="coreMass">核心物质质量 (飞船干重)</label>
+      <div class="input-wrapper">
+        <input type="number" id="coreMass" value="1000" placeholder="例如：1000">
+        <select id="massUnit" style="width: 100px;">
+          <option value="kg">kg</option>
+          <option value="ton">ton</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label for="maxSpeed">最大巡航速度</label>
+      <div class="input-wrapper">
+        <input type="number" id="maxSpeed" value="0.5" step="0.01" max="0.99999">
+        <select id="speedUnit" style="width: 100px;">
+          <option value="c">c (光速)</option>
+          <option value="kms">km/s</option>
+        </select>
+      </div>
+      <input type="range" id="speedSlider" min="0" max="0.999" step="0.001" value="0.5" style="margin-top: 10px;">
+    </div>
+
+    <button class="calculate-btn" id="calcBtn">执行计算</button>
+    <div id="errorMsg" style="color: #f72585; margin-top: 10px; text-align: center; display: none;"></div>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="result-card">
+        <div class="result-label">质量比 (起飞/干重)</div>
+        <div class="result-value" id="massRatio">3.00</div>
+        <div class="result-unit">x</div>
+      </div>
+
+      <div class="result-card">
+        <div class="result-label">起飞总质量</div>
+        <div class="result-value" id="totalMass">3,000</div>
+        <div class="result-unit" id="totalMassUnit">kg</div>
+      </div>
+
+      <div class="result-card danger">
+        <div class="result-label">所需正反物质燃料质量</div>
+        <div class="result-value" id="fuelMass">2,000</div>
+        <div class="result-unit" id="fuelMassUnit">kg</div>
+      </div>
+
+      <div class="result-card danger">
+        <div class="result-label">燃料蕴含的总能量</div>
+        <div class="result-value" id="energyJoules">1.8 × 10<sup>20</sup></div>
+        <div class="result-unit">Joules</div>
+        <div style="margin-top: 0.5rem; font-size: 0.9em; color: #f72585; opacity: 0.8;" id="energyTNT">
+          ≈ 43 GT TNT
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <h3>理论依据</h3>
+      <p>
+        对于理想光子火箭（排气速度 $u_e = c$），考虑到加速和减速两个阶段，总质量比 $R = M_{total} / M_{core}$ 由以下公式给出：
+      </p>
+      <p style="font-family: 'Times New Roman', serif; font-size: 1.2rem; text-align: center; margin: 1rem 0;">
+        $R = \frac{1 + \beta}{1 - \beta}, \quad \text{where } \beta = v/c$
+      </p>
+      <p>
+        注意：当速度接近光速时，由于相对论效应，所需燃料质量将呈双曲线（甚至指数级）增长。这被称为“火箭方程的暴政”。
+      </p>
+    </div>
+
+    <a href="index.html" class="back-link">← 返回实验室主页</a>
+  </div>
+
+  <script src="js/interstellar.js"></script>
+</body>
+
+</html>
