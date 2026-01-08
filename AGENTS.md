@@ -1,7 +1,108 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-The site is a static set of interactive demos surfaced by `index.html`. Standalone pages such as `CartPole.html`, `brillouin_sampling.html`, and `cnn-conv1d.html` live at the repository root. Shared styling is centralized in `css/main.css`, while lightweight behavior (like the dynamic footer year) is handled in `js/main.js`. Place new assets in sibling folders (`css`, `js`, `assets`) and reference them with relative paths to keep GitHub Pages hosting untouched. When adding a demo, register it in the card grid inside `index.html` and reuse the existing badge/button patterns to maintain visual continuity.
+
+### 📁 Directory Structure
+The project follows a modular, engineering-oriented folder structure:
+
+```
+demo/
+├── index.html              # Main entry point
+├── package.json            # Project configuration
+├── esa.jsonc               # ESA configuration
+├── LICENSE                 # MIT License
+├── README.md               # Project documentation
+├── .gitignore              # Git ignore rules
+│
+├── css/                    # Global styles (shared across all pages)
+│   └── main.css           
+│
+├── js/                     # Global scripts (shared across all pages)
+│   └── main.js            
+│
+├── assets/                 # Static resources
+│   └── images/            # Image files (logos, icons, etc.)
+│
+├── demos/                  # All demo projects
+│   ├── *.html             # Individual demo pages
+│   ├── *.js               # Demo-specific scripts
+│   └── [demo-name]/       # Complex demos with multiple modules
+│
+└── docs/                   # Project documentation
+    ├── AGENTS.md          # This file
+    ├── PROJECT_STRUCTURE.md   # Detailed structure guide
+    └── REFACTORING_SUMMARY.md # Refactoring history
+```
+
+### 🎯 Adding New Demo Projects
+
+When creating a new demo, follow these steps:
+
+1. **Create demo files in `demos/` folder:**
+   - Simple demo: `demos/my-demo.html` + `demos/my-demo.js` (if needed)
+   - Complex demo: `demos/my-demo/` folder with multiple files
+
+2. **Resource references (from demo pages):**
+   ```html
+   <!-- Favicon -->
+   <link rel="icon" type="image/webp" href="../assets/images/cropped-logo1.webp">
+   
+   <!-- Global CSS -->
+   <link rel="stylesheet" href="../css/main.css">
+   
+   <!-- Demo-specific script -->
+   <script src="./my-demo.js"></script>
+   <!-- OR for modular demos -->
+   <script type="module" src="./my-demo/main.js"></script>
+   
+   <!-- Back link -->
+   <a href="../index.html">← 返回实验室主页</a>
+   ```
+
+3. **Register in `index.html`:**
+   Add a card in the `demo-grid` section:
+   ```html
+   <article class="card">
+     <span class="badge">Category</span>
+     <h2>Demo Title</h2>
+     <p>Demo description...</p>
+     <footer>
+       <span>2026 · Type</span>
+       <a href="demos/my-demo.html" target="_blank" rel="noopener">打开演示 →</a>
+     </footer>
+   </article>
+   ```
+
+4. **Asset management:**
+   - Images → `assets/images/`
+   - Shared styles → `css/main.css`
+   - Shared scripts → `js/main.js`
+   - Demo-specific files → `demos/`
+
+### 📂 File Placement Rules
+
+- **Root level:** Only `index.html`, config files, and documentation
+- **`demos/`:** All HTML demo pages and their specific scripts/modules
+- **`assets/images/`:** All image files (`.webp`, `.png`, `.svg`, etc.)
+- **`css/`:** Global stylesheets shared across pages
+- **`js/`:** Global scripts shared across pages
+- **`docs/`:** Technical documentation and guides
+
+### 🔗 Path Reference Patterns
+
+| From | To | Path |
+|------|-----|------|
+| `index.html` | Global CSS | `css/main.css` |
+| `index.html` | Global JS | `js/main.js` |
+| `index.html` | Images | `assets/images/file.webp` |
+| `index.html` | Demo pages | `demos/demo-name.html` |
+| `demos/*.html` | Global CSS | `../css/main.css` |
+| `demos/*.html` | Global JS | `../js/main.js` |
+| `demos/*.html` | Images | `../assets/images/file.webp` |
+| `demos/*.html` | Demo script | `./demo-name.js` |
+| `demos/*.html` | Back to home | `../index.html` |
+
+When adding content, maintain these relative path conventions to ensure GitHub Pages hosting remains functional.
 
 ## Build, Test, and Development Commands
 There is no local debugging workflow; commit changes directly to the static files. The `npm run build` script is reserved for CI or remote validation and simply confirms that no additional build step is required—keep its output explicit. Whenever scripts change, update `package.json` so contributors can discover them through `npm run`. If a command must run in a particular remote environment, document that execution flow in the pull request description.
