@@ -25,7 +25,9 @@ demo/
 │   ├── lorentz/           # 洛伦兹演示相关脚本
 │   ├── brillouin_sampling.html  # 布里渊区采样演示
 │   ├── cnn-conv1d.html    # CNN 卷积核可视化
-│   └── CartPole.html      # CartPole 强化学习演示
+│   ├── CartPole.html      # CartPole 强化学习演示
+│   ├── gravity/           # 几何即引力交互课堂
+│   └── gnn-neuron/        # GNN 神经元交互实验
 └── docs/                   # 项目文档
     └── AGENTS.md          # AI Agents 相关文档
 ```
@@ -47,6 +49,8 @@ python3 -m http.server 8000
 - **布里渊区采样** - 第一布里渊区可视化工具
 - **CNN 卷积核可视化** - Conv1d 交互式可视化实验
 - **CartPole 强化学习** - MLP 控制倒立摆演示
+- **几何即引力** - 从度规到爱因斯坦场方程的交互式相对论课堂
+- **GNN 神经元实验** - 从图节点、邻居聚合到单个神经元的交互演示
 
 ## 许可证
 

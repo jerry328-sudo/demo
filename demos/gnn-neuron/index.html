@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="把 GNN 从图节点展开到特征、邻居聚合和单个神经元，交互观察共享权重如何影响整张图。">
+<meta name="theme-color" content="#f6f7f9">
+<title>GNN 交互实验室 · 从图到神经元</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%237355dd'/%3E%3Cpath d='M18 18L46 24L26 47Z' fill='none' stroke='white' stroke-width='3'/%3E%3Cg fill='white'%3E%3Ccircle cx='18' cy='18' r='6'/%3E%3Ccircle cx='46' cy='24' r='6'/%3E%3Ccircle cx='26' cy='47' r='6'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f7f9;--surface:#fff;--ink:#17212d;--muted:#75808f;--line:#e3e7ee;--purple:#7355dd;--purple-soft:#f0ecfc;--teal:#249e8c;--teal-soft:#edf8f5;--amber:#c5852f;--amber-soft:#fbf3e6;--negative:#c87348;--radius:14px;--font:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;--mono:"Cascadia Code","SFMono-Regular",Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.35}button,a,input,select,summary,[role=button]{-webkit-tap-highlight-color:transparent}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[role=button]:focus-visible{outline:3px solid #b2a1ed;outline-offset:4px}button{transition:background .16s,color .16s,border-color .16s,transform .16s}button:active:not(:disabled){transform:translateY(1px)}a{color:var(--purple);text-decoration:none}a:hover{text-decoration:underline}svg{display:block}svg text{font-family:var(--font)}[hidden]{display:none!important}.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}.muted{color:var(--muted)}.purple{color:var(--purple)}.teal{color:var(--teal)}.amber{color:var(--amber)}.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.topbar{height:56px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 38px;background:#ffffff70}.brand{font-size:17px;font-weight:700;letter-spacing:.01em;display:flex;align-items:center;gap:12px}.brand span{color:#acb3be;font-weight:400}.top-note{font-size:13px;color:var(--muted)}.page{max-width:1512px;margin:auto;padding:24px 30px 26px}.intro{margin:0 6px 22px}.intro h1{font-size:clamp(25px,2.55vw,37px);line-height:1.4;letter-spacing:-.045em;margin:0 0 7px;font-weight:750}.intro p{color:#687689;font-size:16px;letter-spacing:.01em;margin:0}.workspace{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:0 3px 16px #24324403}
+.steps{display:flex;position:relative;padding:23px 20px 20px;border-bottom:1px solid var(--line);gap:8px}.steps:before{content:"";position:absolute;top:40px;left:10%;right:10%;height:1px;background:#dbe0e8}.step{flex:1;position:relative;border:0;background:none;padding:0 4px;display:flex;align-items:center;flex-direction:column;gap:7px;color:#778396;font-size:13px;font-weight:550;white-space:nowrap}.step-index{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid #ccd3df;background:#fff;position:relative;color:#7b8596;font:12px var(--mono);transition:all .25s}.step.active{color:var(--purple);font-weight:700}.step.active .step-index{background:var(--purple);border-color:var(--purple);color:#fff;box-shadow:0 0 0 5px #f0ecfc}.step.done .step-index{border-color:#c4b5f0;color:var(--purple);background:#f9f7ff}.step:hover .step-index{border-color:var(--purple)}
+.workbody{display:grid;grid-template-columns:minmax(255px,29%) minmax(375px,44%) minmax(260px,27%);padding:28px 0 25px;min-height:502px}.pane{padding:0 24px;min-width:0}.pane+.pane{border-left:1px solid var(--line)}h2{font-size:18px;font-weight:700;line-height:1.5;letter-spacing:-.025em;margin:0 0 4px}.pane-description{font-size:12px;line-height:1.8;color:var(--muted);margin:0;min-height:24px}.graph-box{position:relative;margin:8px auto 0;max-width:330px}.graph-svg{width:100%;aspect-ratio:320/265;overflow:visible}.graph-edge{stroke:#d6dee6;stroke-width:1.5;transition:stroke .3s,opacity .3s}.graph-edge.active{stroke:#849ca9;stroke-width:1.8}.node-group{cursor:pointer;outline:0}.node-group .disc{transition:fill .25s,stroke .25s,r .25s}.node-group:hover .disc,.node-group:focus-visible .disc{stroke:var(--purple);stroke-width:3}.node-group .node-name{font-size:17px;font-weight:650;pointer-events:none;fill:#fff;text-anchor:middle;dominant-baseline:central}.node-group .ring{fill:none;stroke:#d9d0f5;stroke-width:2}.node-group .mini-feature{fill:#fff;opacity:.6}.packet{pointer-events:none}.legend{display:flex;gap:12px;justify-content:center;margin:0 0 16px;font-size:11px;color:var(--muted);flex-wrap:wrap}.legend span{display:flex;align-items:center;gap:5px}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor}.feature-label{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#657184;margin-bottom:8px}.text-button{color:var(--purple);padding:3px 5px;font-size:11px;border:0;background:none;border-radius:4px}.text-button:hover{background:var(--purple-soft)}.vector-box{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:8px;background:#f9fafc;padding:11px 13px;font-size:16px;min-height:50px;white-space:nowrap}.vector-box .bracket{font-size:22px;color:#a5aec0}.vector-box strong{font:500 15px var(--mono)}.micro-note{font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.7}.feature-editor{background:#faf9fd;border-radius:8px;margin-top:10px;padding:11px}.editor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.editor-grid label{font-size:10px;color:#8b82a4}.editor-grid input{width:100%;min-width:0;border:1px solid #ddd5f0;background:#fff;border-radius:5px;padding:4px 2px 4px 6px;font:12px var(--mono);color:var(--ink)}.edge-editor{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px}.edge-editor label{font-size:11px;display:flex;align-items:center;gap:3px}.edge-editor input{accent-color:var(--purple);margin:0}.editor-caption{font-size:10px;color:#8b82a4;margin:9px 0 0}.pane-center{padding-left:24px;padding-right:24px}.diagram-wrap{margin-top:12px;min-height:343px;position:relative}.stage-svg{width:100%;height:360px;min-width:330px;overflow:visible}.diagram-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:5px;scrollbar-width:thin;scrollbar-color:#d6cfee transparent}.diagram-foot{display:flex;justify-content:center;align-items:center;min-height:26px;color:#8690a0;gap:15px;font-size:10px;margin-top:2px}.diagram-foot span{display:flex;gap:5px;align-items:center}.stage-caption{text-align:center;font-size:12px;color:#7b8698;margin:4px 0 0}.stage-caption strong{font-weight:600;color:var(--purple)}.stage-svg .axis-label{font-size:12px;fill:#7b8593}.stage-svg .value{font:13px var(--mono);fill:var(--ink);dominant-baseline:central;text-anchor:middle}.stage-svg .label{font-size:12px;fill:var(--ink)}.stage-svg .tiny{font-size:11px;fill:#84909e}.stage-svg .hero-letter{font-size:35px;font-weight:650;fill:white}.stage-svg .feature-token{cursor:pointer}.stage-svg .feature-token:focus-visible rect{stroke:var(--purple);stroke-width:2}.stage-svg .unit{cursor:pointer;outline:none}.stage-svg .unit:focus-visible circle{stroke:#45299b;stroke-width:3}.stage-svg .unit:hover .neuron-disc{stroke-width:3}.neuron-wire{fill:none;stroke:#dce0e9;stroke-width:1;transition:stroke .2s,opacity .2s}.neuron-wire.selected{stroke:var(--purple);stroke-width:1.6;opacity:.65}.neuron-wire.selected.neighbor{stroke:var(--teal)}.neuron-wire.selected.negative{stroke-dasharray:4 4;stroke:var(--negative)}.stage-svg .hint-bracket{fill:none;stroke:#d6dde8;stroke-width:1.5}.stage-svg .aggregate-wire{fill:none;stroke:#dbe5e3;stroke-width:1}.stage-svg .aggregate-wire.selected{stroke:var(--teal);stroke-width:1.6}.enter{animation:enter .42s ease both}.stagger{animation:enter .42s ease both;animation-delay:var(--delay,0s)}@keyframes enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.inspector{display:flex;flex-direction:column}.inspect-content{margin-top:18px}.inspector h3{font-size:13px;margin:0 0 8px;font-weight:650}.info-block{border-radius:9px;background:#f7f8fb;padding:17px;margin:0 0 12px;font-size:13px;line-height:1.8}.info-block.purple-tint{background:var(--purple-soft)}.info-block.teal-tint{background:var(--teal-soft)}.info-block.amber-tint{background:var(--amber-soft)}.info-block p{margin:0 0 8px}.info-block p:last-child{margin-bottom:0}.info-block .big-number{font:500 35px var(--mono);letter-spacing:-.06em;color:var(--purple);margin:4px 0}.large-word{font-size:23px;font-weight:650;letter-spacing:-.03em}.explain{font-size:12px;line-height:1.95;color:#6c788a;margin:8px 0 12px}.inspector strong{font-weight:650}.equation{font-family:Cambria,"Times New Roman",serif;font-size:18px;line-height:1.9;color:#26324c}.equation.small{font-size:15px}.operator-row{display:flex;align-items:center;justify-content:center;gap:14px;font-size:13px;padding:12px 0;color:#8390a2}.operator-row strong{color:var(--ink)}.line-metric{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0;border-bottom:1px solid #e9ecf2;color:#7c8797}.line-metric strong{color:var(--ink);font-family:var(--mono)}.line-metric:last-child{border-bottom:0}.calc-summary{background:#f7f6fc;border-radius:8px;padding:12px 13px}.calc-summary .z-line{font:13px var(--mono);color:#697087;margin-bottom:4px}.calc-summary .output-line{font:600 22px var(--mono);color:var(--purple);letter-spacing:-.04em}.relu-note{color:var(--purple);font-size:11px;line-height:1.8;margin:9px 0 12px}.calc-details{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}.calc-details summary{font-size:11px;color:#778398;cursor:pointer;display:flex;align-items:center;justify-content:space-between;list-style:none}.calc-details summary::-webkit-details-marker{display:none}.calc-details summary:after{content:"＋";font-size:14px;color:#9285b5}.calc-details[open] summary:after{content:"−"}.weight-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px;text-align:right;font-family:var(--mono)}.weight-table th{font-family:var(--font);font-size:10px;font-weight:500;color:#8b93a1;padding:5px 1px}.weight-table th:first-child,.weight-table td:first-child{text-align:left}.weight-table td{padding:4px 1px;border-top:1px solid #f0f1f5;white-space:nowrap}.weight-table input{width:51px;border:1px solid #e1dbee;border-radius:4px;background:#fff;font:11px var(--mono);padding:3px 0 3px 3px;color:var(--purple)}.weight-table .feature-name{font-size:9px}.bias-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px}.bias-row input{width:62px;font:11px var(--mono);padding:4px;border:1px solid #e1dbee;border-radius:4px}.inspect-footer{margin-top:auto;padding-top:14px}.subtle-badge{font-size:10px;color:#8a819c;display:flex;gap:5px;align-items:center}.shared-control{padding:13px;background:var(--purple-soft);border-radius:8px;margin-top:15px}.shared-control label{font-size:11px;display:flex;justify-content:space-between;align-items:center;color:#796798}.shared-control input[type=range]{width:100%;accent-color:var(--purple);margin:13px 0 0}.shared-control input[type=number]{width:66px;font:12px var(--mono);color:var(--purple);border:1px solid #d4c8f0;border-radius:4px;background:#fff;padding:5px}.shared-output-list{margin-top:12px}.shared-output-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:11px}.shared-output-row strong{font:11px var(--mono);color:#666f83}.shared-output-row.active strong{color:var(--purple)}.shared-output-row.active .row-node{color:var(--purple)}.row-node{font-weight:650;color:#7e8896}.mini-rule{display:flex;gap:6px;align-items:center;color:#9097a5;font-size:10px;margin-top:10px}
+.narration{border-top:1px solid var(--line);background:#fbfbfd;padding:13px 25px;display:flex;align-items:flex-start;gap:12px;min-height:56px}.narration-index{flex-shrink:0;font:11px var(--mono);color:var(--purple);background:#eee9fa;padding:3px 6px;border-radius:4px;margin-top:1px}.narration p{font-size:12px;color:#717e90;margin:0;line-height:1.9}.narration strong{color:#344052;font-weight:650}.toolbar{padding:16px 25px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line)}.button{border:1px solid #d9dfe9;border-radius:7px;color:#5c6880;background:#fff;min-height:41px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:9px 17px;font-size:12px;font-weight:550}.button:hover:not(:disabled){border-color:#b7a6e3;background:#fbfaff}.button.primary{background:var(--purple);border-color:var(--purple);color:#fff;min-width:147px;box-shadow:0 2px 3px #6b48c412}.button.primary:hover{background:#6447c9}.icon{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.button .play-icon{fill:currentColor;stroke:none}.toolbar-divider{height:23px;width:1px;background:var(--line);margin:0 7px}.speed-control{display:flex;align-items:center;gap:7px;color:#8a93a2;font-size:11px}.speed-control select{border:1px solid var(--line);border-radius:6px;padding:7px 8px;color:#6d768a;background:white;font-size:12px}.toolbar-end{margin-left:auto;display:flex;align-items:center;gap:15px}.keyboard-hint{font-size:10px;color:#9aa2ae}.key{font-family:var(--mono);border:1px solid #e1e5eb;border-radius:3px;padding:1px 4px;background:#fafbfc}.reset-button{border:0;background:none;padding:8px;color:#919aaa;display:flex;gap:5px;align-items:center;font-size:11px}.reset-button:hover{color:var(--purple)}
+.takeaways{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);background:#ffffffb8;border-radius:var(--radius);margin-top:18px;padding:21px 25px}.takeaway{display:flex;gap:13px;align-items:flex-start;min-width:0}.takeaway+.takeaway{border-left:1px solid var(--line);padding-left:26px}.takeaway-icon{width:23px;height:23px;flex-shrink:0;margin-top:3px;stroke:#8b80ab;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}.takeaway h3{font-size:13px;margin:0 0 3px;line-height:1.8}.takeaway p{font-size:11px;line-height:1.9;color:#8b94a3;margin:0;max-width:480px}.model-details{margin:23px 7px 0;font-size:12px}.model-details>summary{cursor:pointer;color:#828da0;font-size:11px;width:fit-content}.model-grid{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin:20px 0;border-top:1px solid var(--line);padding:20px 0}.model-grid h3{font-size:13px;margin:0 0 9px}.model-grid p{font-size:12px;color:#7c8797;line-height:1.9;margin:8px 0}.formula-block{font-family:Cambria,"Times New Roman",serif;font-size:17px;line-height:2;color:#445065;padding:11px 15px;background:#fff;border-left:2px solid #c9bbed}.compare-table{border-collapse:collapse;width:100%;font-size:11px;color:#738095}.compare-table th{text-align:left;color:#48576c;font-weight:600;padding:7px;border-bottom:1px solid var(--line)}.compare-table td{padding:9px 7px;border-bottom:1px solid var(--line)}.footer{display:flex;justify-content:space-between;gap:15px;margin:18px 7px 0;color:#9ba3ae;font-size:10px;line-height:1.8}.footer a{color:#8a80a6}.status-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#263243;color:#fff;border-radius:8px;padding:10px 18px;font-size:12px;box-shadow:0 4px 20px #17212d14;z-index:10;pointer-events:none}.progress-strip{height:2px;background:#ede9f5;overflow:hidden}.progress-fill{height:100%;background:var(--purple);width:0}.topology-note{font-size:11px;color:#8892a2;line-height:1.8;margin-top:5px}.neuron-tabs{display:flex;gap:6px;margin-bottom:13px}.neuron-tab{border:1px solid var(--line);border-radius:6px;background:#fff;color:#8b92a1;font:11px var(--mono);width:32px;height:28px}.neuron-tab.active{background:var(--purple-soft);border-color:#cfbfef;color:var(--purple)}
+@media(min-width:1440px){.page{padding-top:24px}.workbody{min-height:495px}.diagram-wrap{min-height:365px}.pane{padding-left:28px;padding-right:28px}h2{font-size:21px}.pane-description{font-size:13px}.steps{padding-top:21px;padding-bottom:18px}.steps:before{top:38px}.step{font-size:14px}.graph-box{margin-top:13px}.inspect-content{margin-top:23px}}
+@media(max-width:1130px){.page{padding:24px 20px}.pane{padding-left:17px;padding-right:17px}.workbody{grid-template-columns:minmax(225px,28%) minmax(340px,44%) minmax(230px,28%)}h2{font-size:16px}.pane-description{font-size:11px}.topbar{padding:0 27px}.vector-box{padding:10px}.vector-box strong{font-size:13px}.keyboard-hint{display:none}.info-block{padding:13px}.takeaway p{font-size:10px}.diagram-wrap{min-height:340px}}
+@media(max-width:940px){.workbody{grid-template-columns:270px minmax(0,1fr);padding-bottom:0}.pane-center{border-left:1px solid var(--line)}.inspector{grid-column:1/-1;border-left:0!important;border-top:1px solid var(--line);margin-top:22px;padding:21px 25px;display:block}.inspect-content{margin-top:12px}.inspect-content>.info-block{max-width:none}.info-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px}.inspect-footer{display:none}.calc-summary{display:inline-block;min-width:230px}.weight-table{max-width:480px}.shared-output-list{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.shared-output-row{display:block}.shared-output-row strong{display:block;margin-top:4px}.shared-control{max-width:450px}.neuron-tabs{position:absolute;right:27px;margin-top:-53px}.inspector{position:relative}.diagram-wrap{min-height:345px}.topology-note{font-size:11px}.takeaways{padding:18px}.takeaway+.takeaway{padding-left:20px}.toolbar-end{gap:4px}.speed-control>span{display:none}.pane-center .stage-svg{max-height:410px}.feature-editor{margin-bottom:10px}.model-grid{gap:22px}.intro h1{font-size:29px}}
+@media(max-width:660px){.topbar{height:56px;padding:0 18px}.brand{font-size:14px;gap:8px}.top-note{font-size:10px}.page{padding:22px 12px}.intro{margin:0 7px 21px}.intro h1{font-size:25px;max-width:335px;letter-spacing:-.05em;line-height:1.5}.intro p{font-size:12px;max-width:330px}.steps{gap:0;padding:18px 5px 14px}.steps:before{top:32px}.step{font-size:10px;padding:0 1px;gap:7px}.step-index{width:28px;height:28px;font-size:10px}.step.active .step-index{box-shadow:0 0 0 3px #f0ecfc}.workbody{display:block;padding-top:19px}.pane{padding:0 20px}.pane+.pane{border-left:0}.pane-graph{position:relative;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);column-gap:15px;padding-bottom:18px}.graph-heading{grid-column:1/-1}h2{font-size:16px}.pane-description{font-size:11px}.graph-box{grid-column:1;grid-row:2/5;align-self:center;margin:9px 0 0;width:100%;max-width:none}.graph-svg{aspect-ratio:320/285}.legend{grid-column:1/-1;font-size:10px;margin:7px 0 0;gap:15px}.graph-feature{grid-column:2;grid-row:2/5;align-self:center;margin-top:10px}.feature-label{font-size:10px;margin-bottom:5px;flex-wrap:wrap;gap:1px}.vector-box{padding:9px 7px;gap:2px;min-height:39px}.vector-box strong{font-size:10px}.vector-box .bracket{font-size:16px}.micro-note{font-size:9px}.feature-editor{grid-column:1/-1;margin-top:10px}.editor-grid label{font-size:11px}.editor-grid input{font-size:13px;padding:7px}.edge-editor{gap:15px}.edge-editor label{font-size:12px}.pane-center{border-top:1px solid var(--line);padding:20px 18px 0}.diagram-wrap{min-height:310px;margin-top:10px}.diagram-scroll{margin:0 -5px;padding:0 5px 4px}.stage-svg{min-width:0;height:auto}.stage-svg[data-step-view="2"] .value,.stage-svg[data-step-view="3"]>text.value{font-size:16px!important}.stage-svg .axis-label{font-size:13px}.diagram-foot{flex-wrap:wrap}.stage-caption{font-size:11px}.pane-center .stage-svg{max-height:none}.inspector{margin-top:20px;padding:20px}.inspect-content{margin-top:13px}.info-columns{display:block}.inspector .info-block{font-size:12px}.calc-summary{display:block}.calc-details{margin-top:10px}.weight-table{font-size:12px}.weight-table .feature-name{font-size:11px}.weight-table input{font-size:12px;width:67px;padding:5px}.weight-table th{font-size:11px}.bias-row{font-size:12px}.explain{font-size:12px}.shared-output-list{display:block}.shared-output-row{display:flex;font-size:12px}.shared-output-row strong{font-size:12px;margin:0}.shared-control label{font-size:12px}.narration{padding:12px 16px;gap:8px}.narration p{font-size:11px}.narration-index{font-size:10px}.toolbar{padding:13px 13px;gap:7px;flex-wrap:wrap}.button{font-size:11px;padding:9px 12px;min-height:40px;gap:5px}.button.primary{min-width:111px}.toolbar-divider{display:none}.speed-control{margin-left:auto}.speed-control select{padding:7px 4px;font-size:11px}.toolbar-end{width:100%;margin:1px 0 -2px;justify-content:space-between}.keyboard-hint{display:block;font-size:9px}.reset-button{font-size:10px;padding:2px 3px}.takeaways{display:block;margin-top:14px;padding:18px}.takeaway+.takeaway{border-left:0;border-top:1px solid var(--line);padding:15px 0 0;margin-top:15px}.takeaway h3{font-size:12px}.takeaway p{font-size:11px}.takeaway-icon{width:20px;height:20px}.model-grid{grid-template-columns:1fr;gap:20px}.footer{display:block;font-size:9px}.footer span{display:block;margin-bottom:5px}.neuron-tabs{right:20px}.stage-svg text{paint-order:stroke}.status-toast{max-width:90%;width:max-content;text-align:center;font-size:11px}.topology-note{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.packet{display:none}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="brand">GNN <span>/</span> 交互实验室</div><div class="top-note">从图到神经元</div></header>
+<main class="page">
+  <section class="intro"><h1>把一个图节点，展开成神经元。</h1><p>图决定信息从哪里来，神经元决定如何计算。</p></section>
+  <section class="workspace" aria-label="GNN 分步交互演示">
+    <nav class="steps" aria-label="演示步骤">
+      <button type="button" class="step active" data-step="0" aria-current="step"><span class="step-index">01</span><span>图结构</span></button>
+      <button type="button" class="step" data-step="1"><span class="step-index">02</span><span>特征展开</span></button>
+      <button type="button" class="step" data-step="2"><span class="step-index">03</span><span>邻居聚合</span></button>
+      <button type="button" class="step" data-step="3"><span class="step-index">04</span><span>神经元计算</span></button>
+      <button type="button" class="step" data-step="4"><span class="step-index">05</span><span>参数共享</span></button>
+    </nav>
+    <div class="workbody">
+      <section class="pane pane-graph" aria-label="图与输入特征">
+        <div class="graph-heading"><h2>选择一个图节点</h2><p class="pane-description">点击节点，查看其特征与计算过程。</p></div>
+        <div class="graph-box"><svg id="graph" class="graph-svg" viewBox="0 0 320 265" aria-label="可交互的五节点无向图"></svg></div>
+        <div class="legend"><span><i class="dot purple"></i>当前节点</span><span><i class="dot teal"></i>一跳邻居</span><span><i class="dot" style="color:#aeb8c6"></i>其他节点</span></div>
+        <div class="graph-feature"><div class="feature-label"><span>节点 <b id="selected-name">A</b> 的特征向量</span><button type="button" class="text-button" id="edit-features" aria-expanded="false" aria-controls="feature-editor">编辑</button></div><div id="selected-vector" class="vector-box mono"></div><p class="micro-note">h<sub id="vector-sub">A</sub> · 3 个输入特征</p></div>
+        <div id="feature-editor" class="feature-editor" hidden><div id="feature-inputs" class="editor-grid"></div><p class="editor-caption">当前节点的连边（勾选以连接）</p><div id="edge-inputs" class="edge-editor"></div><p class="micro-note">输入范围 −2 至 2。所有结果实时计算。</p></div>
+      </section>
+      <section class="pane pane-center" aria-label="展开的计算过程"><h2 id="stage-title"></h2><p id="stage-description" class="pane-description"></p><div id="diagram-wrap" class="diagram-wrap"><div class="diagram-scroll"><svg id="stage" class="stage-svg" viewBox="0 0 470 375" aria-label="当前步骤的计算示意"></svg></div><div id="diagram-foot" class="diagram-foot"></div><p id="stage-caption" class="stage-caption"></p></div></section>
+      <aside class="pane inspector" aria-label="当前计算的详细解释"><h2 id="inspector-title"></h2><p id="inspector-subtitle" class="pane-description"></p><div id="inspector-content" class="inspect-content"></div><div id="inspector-footer" class="inspect-footer"></div></aside>
+    </div>
+    <div class="narration" aria-live="polite" aria-atomic="true"><span id="narration-index" class="narration-index">01 / 05</span><p id="narration-text"></p></div>
+    <div class="toolbar">
+      <button type="button" class="button primary" id="play"><svg class="icon play-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l10-6.5z"/></svg><span>播放演示</span></button>
+      <button type="button" class="button" id="prev" disabled><svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="m12 4-6 6 6 6"/></svg>上一步</button>
+      <button type="button" class="button" id="next">下一步<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg></button>
+      <div class="toolbar-divider"></div><label class="speed-control"><span>播放速度</span><select id="speed" aria-label="播放速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+      <div class="toolbar-end"><span class="keyboard-hint"><kbd class="key">Space</kbd> 播放 / 暂停　<kbd class="key">←</kbd> <kbd class="key">→</kbd> 切换步骤</span><button type="button" class="reset-button" id="reset"><svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 8a6.5 6.5 0 1 1 .7 6M4 3v5h5"/></svg>重置实验</button></div>
+    </div>
+    <div class="progress-strip" aria-hidden="true"><div id="progress" class="progress-fill"></div></div>
+  </section>
+  <section class="takeaways" aria-label="两个核心概念">
+    <div class="takeaway"><svg class="takeaway-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.5"/></svg><div><h3>图节点 ≠ 单个神经元</h3><p>节点携带多维特征。本例用 3 个输出神经元，为一个节点生成 3 个新特征。</p></div></div>
+    <div class="takeaway"><svg class="takeaway-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8 4-4 4 4m-4-4v16m-7-4 7 4 7-4"/></svg><div><h3>同一层，不同节点复用同一组 W 和 b</h3><p>展开后可以画出许多计算单元，但参数并不按节点各存一份。</p></div></div>
+  </section>
+  <details class="model-details"><summary>模型约定、完整公式，以及与 MLP / CNN 的对应关系</summary><div class="model-grid"><div><h3>这个实验采用什么模型？</h3><div class="formula-block">m<sub>v</sub> = mean { h<sub>u</sub> : u ∈ N(v) }<br>x<sub>v</sub> = [ h<sub>v</sub> ∥ m<sub>v</sub> ] ∈ ℝ⁶<br>h′<sub>v</sub> = ReLU( W x<sub>v</sub> + b ) ∈ ℝ³</div><p>这是一个简化的 GraphSAGE 风格消息传递层：3 维自身特征与 3 维邻居均值拼成 6 维输入，再用一个带偏置的线性层和 ReLU 更新。W 的形状为 3 × 6，b 为 3 维。等价于将 W 分为 W<sub>self</sub> 与 W<sub>neighbor</sub> 两块。</p><p>图是无向的；自身不计入邻居均值，而通过单独的分支参与计算。若没有邻居，本例约定 m<sub>v</sub> = 0。所有节点都使用同一份旧特征同步计算；演示播放只改变展示步骤，不会将输出写回输入。</p><p>输入数值和权重仅作教学示例，没有训练、损失函数或物理单位。本例的求均值没有可训练参数；其他 GNN 可以使用带参数的消息函数、注意力或更深的 MLP。不同层通常使用不同参数，GNN 也不都遵循完全相同的更新公式。</p><p>原理参考：<a href="https://www.dgl.ai/dgl_docs/en/2.0.x/tutorials/blitz/3_message_passing.html" target="_blank" rel="noopener noreferrer">DGL 官方消息传递与 GraphSAGE 教程</a>。</p></div><div><h3>从神经元视角看三种网络</h3><table class="compare-table"><thead><tr><th>网络</th><th>单元接收哪些输入？</th><th>权重如何共享？</th></tr></thead><tbody><tr><td>MLP</td><td>通常是上一层全部特征</td><td>普通全连接层不强制跨位置共享</td></tr><tr><td>CNN</td><td>规则网格上的局部窗口</td><td>同一卷积核跨空间位置共享</td></tr><tr><td>本例 GNN</td><td>自身特征 + 图邻居的均值</td><td>同一更新矩阵跨图节点共享</td></tr></tbody></table><p>“神经元”指一个标量输出的计算单元：加权求和、加偏置、再经过激活函数。输入特征只是数值；求均值是固定聚合运算，它们不必被称为可训练神经元。</p><p>对于这一层的 5 个节点、每节点 3 维输出，完整展开可画出 15 个输出神经元的计算实例。但是独立可训练参数只有 3 × 6 + 3 = 21 个，而不是 5 × 21 个。</p><p>再叠一层：第二层接收第一层的节点特征。信息可以沿两条图边传播到两跳邻域。这里专注展示单层，以便看清每一个标量如何被计算。</p></div></div></details>
+  <footer class="footer"><span>教学模型 · 3 维输入 → 3 维输出 · 单层消息传递</span><span>单文件，可离线使用 · <a href="https://www.dgl.ai/dgl_docs/en/2.0.x/tutorials/blitz/3_message_passing.html" target="_blank" rel="noopener noreferrer">原理参考 ↗</a></span></footer>
+</main>
+<div id="toast" class="status-toast" role="status" hidden></div>
+<noscript><p style="padding:30px">请启用浏览器 JavaScript，以使用交互式演示。</p></noscript>
+<script>
+(() => {
+'use strict';
+// Deliberately self-contained: no network requests, libraries, storage or trained model.
+const $ = id => document.getElementById(id);
+const IDS = ['A','B','C','D','E'];
+const BASE_FEATURES = {A:[1,.5,-.5],B:[.5,1,.5],C:[1,.5,-1],D:[-.5,0,1],E:[.2,-1,.5]};
+const BASE_W = [[.6,-.2,.4,.6,.8,-.3],[-.4,.7,.3,.2,-.5,.6],[.3,.1,-.6,-.4,.2,.5]];
+const BASE_B = [.2,-.1,.05];
+const BASE_EDGES = ['AB','AC','AD','BC','CE','DE'];
+const POS = {A:[154,133],B:[67,44],C:[269,62],D:[57,220],E:[257,218]};
+const C = {purple:'#7355dd',purpleSoft:'#f0ecfc',teal:'#249e8c',tealSoft:'#edf8f5',amber:'#c5852f',amberSoft:'#fbf3e6',muted:'#8290a0',ink:'#17212d',line:'#e0e5ed',negative:'#c87348'};
+const state = {step:0,node:'A',neuron:0,feature:0,features:structuredClone(BASE_FEATURES),weights:structuredClone(BASE_W),bias:[...BASE_B],edges:new Set(BASE_EDGES),playing:false,speed:1,elapsed:0,editor:false,weightsOpen:false};
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const meta = [
+  {title:'一个节点，里面有什么？',description:'大圆代表对象；向量记录这个对象的状态。'},
+  {title:'把向量拆成一个个数',description:'3 维向量，就对应 3 个标量输入。'},
+  {title:'先把邻居的信息汇总',description:'沿每个特征维度求均值，得到邻居摘要。'},
+  {title:'一个节点的计算，展开来看',description:'6 个输入分别连接到 3 个输出神经元。'},
+  {title:'把同一套计算放回图上',description:'每个节点都有计算实例，所有实例共享参数。'}
+];
+const edgeKey = (a,b) => [a,b].sort().join('');
+const neighbors = id => IDS.filter(other => other!==id && state.edges.has(edgeKey(id,other)));
+const fmt = (n,digits=2) => {
+  const v = Math.abs(n) < .5*Math.pow(10,-digits) ? 0 : n;
+  return v.toFixed(digits).replace('-', '−');
+};
+const f1 = n => fmt(n,1);
+const raw = n => Math.abs(n)<1e-10 ? 0 : Math.round(n*1000000)/1000000;
+const clean = n => Math.max(-2,Math.min(2,n));
+const vec = (a,d=2) => '[ '+a.map(v=>fmt(v,d)).join(' , ')+' ]';
+function compute(id) {
+  const ns = neighbors(id);
+  const m = [0,1,2].map(k=>ns.length ? ns.reduce((s,u)=>s+state.features[u][k],0)/ns.length : 0);
+  const x = [...state.features[id],...m];
+  const z = state.weights.map((row,j)=>row.reduce((s,w,i)=>s+w*x[i],state.bias[j]));
+  return {neighbors:ns,m,x,z,h:z.map(v=>Math.max(0,v))};
+}
+function tx(x,y,text,cls='label',extra='') {return `<text x="${x}" y="${y}" class="${cls}" ${extra}>${text}</text>`;}
+function rect(x,y,w,h,fill,rx=8,extra='') {return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" ${extra}/>`;}
+function circle(x,y,r,fill,extra='') {return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${extra}/>`;}
+function curve(x1,y1,x2,y2,cls='neuron-wire',extra='') {const m=(x1+x2)/2;return `<path d="M${x1} ${y1} C${m} ${y1},${m} ${y2},${x2} ${y2}" class="${cls}" ${extra}/>`;}
+function arrow(x1,y1,x2,y2,color='#bcc5d3') {return `<path d="M${x1} ${y1} L${x2} ${y2}" fill="none" stroke="${color}" stroke-width="1.4" marker-end="url(#arrow)"/>`;}
+function svgBase() {return `<defs><marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 8 4 0 8z" fill="#b2bbca"/></marker></defs>`;}
+function motionDot(path,color,delay=0) {
+  if(!state.playing || reducedMotion.matches) return '';
+  return `<circle class="packet" r="3.5" fill="${color}" opacity=".85"><animateMotion dur="${1.7/state.speed}s" begin="${delay/state.speed}s" repeatCount="indefinite" path="${path}"/></circle>`;
+}
+function renderGraph() {
+  const current = state.node, ns = neighbors(current);
+  let s = '';
+  for(const key of state.edges) {
+    const a=key[0],b=key[1],p=POS[a],q=POS[b];
+    s += `<line class="graph-edge ${key.includes(current)?'active':''}" x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}"/>`;
+  }
+  if(state.step===2 || state.step===3) ns.forEach((id,k)=> {
+    const [x,y]=POS[id],[cx,cy]=POS[current];
+    s+=motionDot(`M${x} ${y} L${cx} ${cy}`,C.teal,k*.35);
+  });
+  IDS.forEach(id=>{
+    const [x,y]=POS[id],active=id===current,near=ns.includes(id);
+    const fill=active?C.purple:near?C.teal:'#b5becc';
+    s+=`<g class="node-group" role="button" tabindex="0" data-node="${id}" aria-label="选择节点 ${id}" aria-pressed="${active}">`;
+    if(active) s+=circle(x,y,31,'none','class="ring"');
+    s+=circle(x,y,active?25:22,fill,'class="disc" stroke="transparent" stroke-width="2"');
+    s+=`<text class="node-name" x="${x}" y="${y-1}">${id}</text>`;
+    if(state.step>0) for(let k=0;k<3;k++) s+=circle(x-6+k*6,y+13,1.4,'white','class="mini-feature"');
+    s+='</g>';
+  });
+  $('graph').innerHTML=s;
+  $('selected-name').textContent=current;
+  $('vector-sub').textContent=current;
+  $('selected-vector').innerHTML=`<span class="bracket">[</span>${state.features[current].map(v=>`<strong>${fmt(v,1)}</strong>`).join('')}<span class="bracket">]</span>`;
+  $('selected-vector').setAttribute('aria-label',`节点 ${current} 的输入特征为 ${state.features[current].join(', ')}`);
+}
+function renderEditor() {
+  $('feature-editor').hidden=!state.editor;
+  $('edit-features').setAttribute('aria-expanded',String(state.editor));
+  $('edit-features').textContent=state.editor?'收起':'编辑';
+  $('feature-inputs').innerHTML=state.features[state.node].map((v,k)=>`<label>特征 ${k+1}<input aria-label="节点 ${state.node} 的特征 ${k+1}" type="number" min="-2" max="2" step="0.1" value="${v}" data-feature-input="${k}"></label>`).join('');
+  $('edge-inputs').innerHTML=IDS.filter(id=>id!==state.node).map(id=>`<label><input type="checkbox" data-edge="${id}" aria-label="连接 ${state.node} 与 ${id}" ${state.edges.has(edgeKey(state.node,id))?'checked':''}>${state.node}–${id}</label>`).join('');
+}
+function stageGraph() {
+  const id=state.node, h=state.features[id];
+  let s=svgBase();
+  s+=tx(235,26,`图节点 ${id}`,'axis-label','text-anchor="middle"');
+  s+=circle(235,120,68,'none','stroke="#ede8f8" stroke-width="1.5"');
+  s+=circle(235,120,55,C.purple);
+  s+=tx(235,124,id,'hero-letter','text-anchor="middle" dominant-baseline="central"');
+  s+=tx(312,111,'一个对象','label');
+  s+=tx(312,132,'例如一个原子','tiny');
+  s+=`<path d="M296 120h10" stroke="#d0c6e7"/>`;
+  s+=arrow(235,190,235,228);
+  s+=tx(250,212,'查看它的状态','tiny');
+  s+=rect(87,248,296,78,'#f8f6fd',12,'stroke="#e5def4"');
+  s+=tx(107,291,'[','label','style="font-size:30px;fill:#b0a3c9"');
+  s+=tx(356,291,']','label','style="font-size:30px;fill:#b0a3c9"');
+  h.forEach((v,k)=>{
+    s+=tx(154+k*82,284,fmt(v,1),'value','style="font-size:20px;fill:#7355dd"');
+    s+=tx(154+k*82,309,`特征 ${k+1}`,'tiny','text-anchor="middle"');
+  });
+  s+=tx(235,355,`h${id}：一个 3 维特征向量`,'axis-label','text-anchor="middle"');
+  return s;
+}
+function stageFeatures() {
+  const h=state.features[state.node],f=state.feature;
+  let s=svgBase();
+  s+=rect(109,18,252,61,C.purpleSoft,10);
+  s+=tx(235,41,`节点 ${state.node} 的状态 h${state.node}`,'axis-label','text-anchor="middle"');
+  s+=tx(235,62,vec(h,1),'value','style="font-size:17px;fill:#7355dd"');
+  for(let k=0;k<3;k++) {
+    const x=92+k*143;
+    s+=`<path d="M235 82 C235 113,${x} 112,${x} 145" fill="none" stroke="${k===f?'#b9a5e7':'#e2dde9'}" stroke-width="1.4"/>`;
+    s+=`<g class="feature-token" role="button" tabindex="0" data-feature="${k}" aria-label="查看特征 ${k+1}" aria-pressed="${k===f}">`;
+    s+=rect(x-54,145,108,105,k===f?C.purpleSoft:'#fafafd',10,`stroke="${k===f?'#b7a1e6':'#e6e3ed'}"`);
+    s+=tx(x,171,`h${state.node},${k+1}`,'axis-label','text-anchor="middle"');
+    s+=tx(x,205,fmt(h[k],1),'value',`style="font-size:27px;fill:${k===f?C.purple:C.ink}"`);
+    s+=tx(x,233,`第 ${k+1} 个标量`,'tiny','text-anchor="middle"');
+    s+='</g>';
+  }
+  s+=`<path d="M45 272v9h380v-9" class="hint-bracket"/>`;
+  s+=tx(235,309,'这 3 个数，将成为神经元的输入','label','text-anchor="middle"');
+  s+=tx(235,334,'输入数值本身还不是“加权求和 + 激活”的计算单元','tiny','text-anchor="middle"');
+  return s;
+}
+function stageAggregation() {
+  const c=compute(state.node),ns=c.neighbors,n=ns.length,f=state.feature;
+  let s=svgBase();
+  const yy=[96,183,270],outX=418,aggX=342,inStart=74,inEnd=n>1?250:74;
+  const inputX=i=>n===1?153:inStart+(inEnd-inStart)*i/(n-1);
+  s+=tx(155,21,n?String(n)+' 个邻居的特征':'没有相连的邻居','axis-label','text-anchor="middle"');
+  s+=tx(outX,21,'邻居均值','axis-label','text-anchor="middle"');
+  if(!n) {
+    s+=rect(35,55,231,260,'#f8fafb',12,'stroke="#e6eaef" stroke-dasharray="4 4"');
+    s+=tx(150,176,'邻居集合为空','label','text-anchor="middle"');
+    s+=tx(150,200,'本例将聚合结果设为零向量','tiny','text-anchor="middle"');
+  }
+  ns.forEach((id,i)=>{
+    const x=inputX(i);
+    s+=rect(x-27,48,54,292,'#f6fbf9',8);
+    s+=tx(x,64,id,'label','text-anchor="middle" style="fill:'+C.teal+';font-weight:650"');
+  });
+  for(let k=0;k<3;k++) {
+    const y=yy[k];
+    ns.forEach((id,i)=>{
+      const x=inputX(i),lane=y+32+(n-1-i)*7;
+      const d='M'+x+' '+(y+22)+' V'+(lane-5)+' Q'+x+' '+lane+','+(x+6)+' '+lane+' H'+(aggX-19)+' Q'+(aggX-6)+' '+lane+','+(aggX-6)+' '+(y+12);
+      s+='<path d="'+d+'" class="aggregate-wire '+(k===f?'selected':'')+'"/>';
+      if(k===f)s+=motionDot(d,C.teal,i*.35);
+    });
+    if(n) {
+      s+=circle(aggX,y,13,k===f?C.amberSoft:'#f8f5ee','stroke="'+(k===f?C.amber:'#e3d9c6')+'"');
+      s+=tx(aggX,y,'μ','value','style="font:16px Cambria,serif;fill:'+C.amber+'"');
+      s+=tx(aggX,y-20,'÷ '+n,'tiny','text-anchor="middle"');
+      s+=arrow(aggX+14,y,outX-30,y,k===f?'#d1af79':'#e3d9c6');
+    }
+  }
+  ns.forEach((id,i)=>{
+    const x=inputX(i);
+    for(let k=0;k<3;k++) {
+      const y=yy[k];
+      s+=circle(x,y,22,k===f?'#def1eb':'#edf6f3','stroke="'+(k===f?'#6ebaab':'#d6e9e2')+'"');
+      s+=tx(x,y,f1(state.features[id][k]),'value','style="font-size:12px"');
+    }
+  });
+  for(let k=0;k<3;k++) {
+    const y=yy[k];
+    s+='<g role="button" tabindex="0" class="unit" data-feature="'+k+'" aria-label="查看第 '+(k+1)+' 维的聚合" aria-pressed="'+(k===f)+'">';
+    s+=circle(outX,y,28,k===f?C.amberSoft:'#faf7f1','stroke="'+(k===f?C.amber:'#e9dec9')+'" stroke-width="'+(k===f?1.8:1)+'"');
+    s+=tx(outX,y,fmt(c.m[k],2),'value','style="font-size:13px"');
+    s+=tx(outX,y+46,'m'+(k+1),'tiny','text-anchor="middle"');
+    s+='</g>';
+    s+=tx(13,y+4,'维 '+(k+1),'tiny');
+  }
+  s+=tx(235,363,'各邻居直接汇入均值运算，不依次经过其他节点','axis-label','text-anchor="middle"');
+  return s;
+}
+function stageNeurons() {
+  const c=compute(state.node),j=state.neuron;
+  const inX=147,outX=366,ys=[52,104,156,230,282,334],os=[105,203,301];
+  let s=svgBase();
+  s+=rect(2,22,177,166,'#f8f6fd',10);
+  s+=rect(2,200,177,166,C.tealSoft,10);
+  s+=tx(15,90,'自身特征','label',`style="fill:${C.purple};font-weight:600"`);
+  s+=tx(15,111,'3 个标量','tiny');
+  s+=tx(15,269,'邻居均值','label',`style="fill:${C.teal};font-weight:600"`);
+  s+=tx(15,290,'3 个标量','tiny');
+  s+=tx(outX,22,'3 个输出神经元','label','text-anchor="middle" style="font-weight:600"');
+  for(let o=0;o<3;o++) for(let i=0;i<6;i++) {
+    const w=state.weights[o][i],active=o===j;
+    s+=curve(inX+23,ys[i],outX-31,os[o],`neuron-wire ${active?'selected':''} ${i>=3?'neighbor':''} ${w<0?'negative':''}`,`data-wire="${o}-${i}" style="${w===0?'opacity:.15;':''}"`);
+    if(active && w!==0) s+=motionDot(`M${inX+23} ${ys[i]} C252 ${ys[i]},252 ${os[o]},${outX-31} ${os[o]}`,i<3?C.purple:C.teal,i*.17);
+  }
+  c.x.forEach((v,i)=>{
+    s+=circle(inX,ys[i],23,i<3?'#f1ecfb':'#e7f3ef',`stroke="${i<3?'#c5b4e9':'#9fd1c4'}" stroke-width="1.3"`);
+    s+=tx(inX,ys[i],fmt(v,2),'value','style="font-size:13px"');
+  });
+  for(let o=0;o<3;o++) {
+    const active=o===j,y=os[o],muted=c.h[o]===0;
+    s+=`<g class="unit" role="button" tabindex="0" data-neuron="${o}" aria-label="查看神经元 ${o+1}" aria-pressed="${active}">`;
+    if(active) s+=circle(outX,y,38,'none','stroke="#e5dcf8" stroke-width="3"');
+    s+=circle(outX,y,30,active?C.purple:C.purpleSoft,`class="neuron-disc" stroke="${active?C.purple:'#bda7e8'}" stroke-width="1.5"`);
+    s+=tx(outX,y,o+1,'value',`style="fill:${active?'#fff':C.purple};font-size:23px;font-weight:600"`);
+    s+=tx(outX,y+48,`h′${o+1} = ${fmt(c.h[o],3)}`,'tiny',`text-anchor="middle" style="fill:${active?C.purple:muted?'#a8a6b1':'#8f859e'};font-family:var(--mono);font-size:11px"`);
+    s+='</g>';
+  }
+  return s;
+}
+function stageSharing() {
+  const j=state.neuron;
+  let s=svgBase();
+  s+=rect(141,9,188,64,C.purpleSoft,10,'stroke="#e0d7f5"');
+  s+=tx(235,33,'同一组 W 和 b','label',`text-anchor="middle" style="fill:${C.purple};font-weight:650"`);
+  s+=tx(235,55,'18 个权重 + 3 个偏置','tiny','text-anchor="middle"');
+  s+=tx(40,108,'节点','axis-label','text-anchor="middle"');
+  s+=tx(151,108,'输入 xᵥ','axis-label','text-anchor="middle"');
+  s+=tx(270,108,'共享的 3 个神经元','axis-label','text-anchor="middle"');
+  s+=tx(405,108,'新特征 h′ᵥ','axis-label','text-anchor="middle"');
+  s+=`<path d="M235 74v12h35v241" stroke="#dcd2f1" stroke-width="1.2" stroke-dasharray="3 4" fill="none"/>`;
+  for(let n=0;n<5;n++) {
+    const id=IDS[n],y=137+n*48,active=id===state.node,c=compute(id);
+    s+=`<g role="button" tabindex="0" class="unit" data-node="${id}" aria-label="在共享计算中选择节点 ${id}" aria-pressed="${active}">`;
+    s+=rect(8,y-20,452,40,active?'#f7f4fc':'#fcfcfd',7,`stroke="${active?'#e5dcf5':'#f0f1f5'}"`);
+    s+=circle(40,y,13,active?C.purple:'#bac3cf');
+    s+=tx(40,y,id,'value','style="fill:white;font-size:11px"');
+    for(let k=0;k<6;k++) {
+      const value=c.x[k],x=113+k*13,fill=k<3?'#a28ad9':'#5db5a2';
+      s+=rect(x,y-8,9,16,fill,2,`opacity="${.22+Math.min(Math.abs(value)/2,1)*.65}"`);
+    }
+    s+=arrow(200,y,225,y,'#d4cce3');
+    for(let o=0;o<3;o++) {
+      const x=244+o*27;
+      s+=circle(x,y,10,o===j?C.purple:'#ede6f8',`stroke="${o===j?C.purple:'#cdbbe8'}"`);
+      s+=tx(x,y,o+1,'value',`style="fill:${o===j?'white':C.purple};font-size:9px"`);
+    }
+    s+=arrow(320,y,343,y,'#d4cce3');
+    s+=tx(404,y,vec(c.h,2),'value',`style="font-size:9px;fill:${active?C.purple:'#7e8595'}"`);
+    s+='</g>';
+  }
+  s+=tx(235,373,'5 × 3 = 15 个输出计算实例，只有 21 个独立参数','tiny','text-anchor="middle"');
+  return s;
+}
+function renderStage(animate=false) {
+  $('stage-title').textContent=meta[state.step].title;
+  $('stage-description').textContent=meta[state.step].description;
+  const renders=[stageGraph,stageFeatures,stageAggregation,stageNeurons,stageSharing];
+  $('stage').innerHTML=renders[state.step]();
+  $('stage').setAttribute('aria-label',meta[state.step].title);
+  $('stage').setAttribute('data-step-view',String(state.step));
+  if(animate && !reducedMotion.matches) {
+    $('stage').classList.remove('enter');
+    void $('stage').getBoundingClientRect();
+    $('stage').classList.add('enter');
+  }
+  const foot=[
+    '',
+    '',
+    `<span><i class="dot teal"></i>邻居的标量</span><span><i class="dot amber"></i>聚合结果</span>`,
+    `<span><i class="dot purple"></i>自身输入</span><span><i class="dot teal"></i>邻居输入</span><span>虚线：负权重</span>`,
+    `<span><i class="dot purple"></i>同色单元使用同一行权重</span>`
+  ];
+  const captions=[
+    '一个大圆，携带一组数。',
+    '点击任意特征，查看对应的标量。',
+    '点击右侧的均值，查看这一维如何聚合。',
+    '点击任意输出神经元，查看它的计算。',
+    '调整右侧共享权重，观察所有节点的输出。'
+  ];
+  $('diagram-foot').innerHTML=foot[state.step];
+  $('stage-caption').textContent=captions[state.step];
+}
+function tabs() {return `<div class="neuron-tabs" aria-label="选择输出神经元">${[0,1,2].map(j=>`<button type="button" class="neuron-tab ${state.neuron===j?'active':''}" data-neuron="${j}" aria-label="选择输出神经元 ${j+1}" aria-pressed="${state.neuron===j}">${j+1}</button>`).join('')}</div>`;}
+function weightTable(c,j) {
+  return `<details class="calc-details" id="weight-details" ${state.weightsOpen?'open':''}><summary>展开 6 项计算 · 可修改权重</summary><table class="weight-table"><thead><tr><th>输入</th><th>x</th><th>× w</th><th>贡献</th></tr></thead><tbody>${c.x.map((x,i)=>`<tr><td class="feature-name ${i<3?'purple':'teal'}">${i<3?'自身':'邻居'} ${i%3+1}</td><td>${fmt(x,2)}</td><td><input type="number" min="-2" max="2" step="0.1" value="${state.weights[j][i]}" aria-label="神经元 ${j+1} 的权重 ${i+1}" data-weight="${i}"></td><td id="product-${i}">${fmt(x*state.weights[j][i],3)}</td></tr>`).join('')}</tbody></table><label class="bias-row">偏置 b${j+1}<input type="number" min="-2" max="2" step="0.1" value="${state.bias[j]}" data-bias="${j}" aria-label="神经元 ${j+1} 的偏置"></label><p class="micro-note">显示值已四舍五入，计算使用完整精度。权重修改会应用于所有节点。</p></details>`;
+}
+function inspectorGraph(c) {
+  return `<div class="info-block purple-tint"><div class="muted" style="font-size:11px">图节点代表</div><div class="large-word">一个对象</div><p class="explain">可以是一个原子、一个人，或一座城市。图上的边描述对象之间的连接。</p></div><div class="line-metric"><span>当前对象</span><strong>节点 ${state.node}</strong></div><div class="line-metric"><span>输入特征</span><strong>3 维</strong></div><div class="line-metric"><span>直接邻居</span><strong>${c.neighbors.join(' · ')||'无'}</strong></div><p class="explain">先记住：<strong>图节点存着一个向量。</strong>接下来，我们把这个向量打开。</p>`;
+}
+function inspectorFeatures(c) {
+  return `<div class="info-block purple-tint"><div class="muted" style="font-size:11px">节点 ${state.node} · 特征 ${state.feature+1}</div><div class="big-number">${fmt(c.x[state.feature],1)}</div><p class="explain">这是一个<strong>标量</strong>，也就是单个数值。</p></div><div class="operator-row"><strong>1 个节点</strong><span>→</span><strong>3 个特征</strong></div><p class="explain">一个神经元可以同时接收多个这样的数。<strong>输入维度与输出神经元的数量不必相等。</strong></p><p class="explain">本例先有 3 维自身输入，下一步还会加入 3 维邻居摘要。</p>`;
+}
+function inspectorAggregation(c) {
+  const k=state.feature,ns=c.neighbors,other=IDS.filter(id=>id!==state.node&&!ns.includes(id));
+  return `<div class="info-block teal-tint"><div class="muted" style="font-size:11px">沿第 ${k+1} 个特征维度计算</div><p class="mono" style="font-size:12px;margin-top:9px">${ns.length?ns.map(id=>`${id}: ${fmt(state.features[id][k],1)}`).join('<br>'):'N('+state.node+') = ∅'}</p></div><div class="info-block amber-tint"><div class="equation small">m${k+1} = ${ns.length?'('+ns.map(id=>fmt(state.features[id][k],1)).join(' + ')+') / '+ns.length:'0'}</div><div class="mono" style="font-size:26px;color:var(--amber)">= ${fmt(c.m[k],3)}</div></div><p class="explain"><strong>求均值没有可训练权重。</strong>它只负责汇总信息，后面的神经元再学习如何使用这个结果。</p><p class="topology-note">${other.length?'节点 '+other.join('、')+' 与 '+state.node+' 不直接相连，因此其输入不进入这次聚合。':'其余节点都是直接邻居。'} 自身特征通过另一个分支参与更新。</p>`;
+}
+function inspectorNeuron(c) {
+  const j=state.neuron;
+  return `${tabs()}<div class="info-block" style="padding:11px 14px"><div class="equation">z${j+1} = ∑<sub>i=1…6</sub> w${j+1},i xᵢ + b${j+1}</div><div class="equation small">h′${j+1} = ReLU(z${j+1}) = max(0, z${j+1})</div></div><div class="calc-summary"><div class="z-line" id="z-value">z${j+1} = ${fmt(c.z[j],3)}</div><div class="output-line" id="h-value">h′${j+1} = ${fmt(c.h[j],3)}</div></div><p class="relu-note" id="relu-note">${reluText(c.z[j])}</p>${weightTable(c,j)}`;
+}
+function reluText(z) {return z>0?'加权和为正，ReLU 保留这个数值。':z<0?'加权和为负，ReLU 将它截为 0。输出为零不等于没有进行计算。':'加权和恰好为 0，ReLU 输出 0。';}
+function inspectorSharing() {
+  return `${tabs()}<div class="info-block" style="padding:12px 14px"><div class="line-metric"><span>输出计算实例</span><strong>5 × 3 = 15</strong></div><div class="line-metric"><span>独立可训练参数</span><strong>3 × 6 + 3 = 21</strong></div></div><div class="shared-control"><label>神经元 ${state.neuron+1} · 自身特征 1 的权重<input type="number" min="-2" max="2" step="0.1" id="shared-weight-number" value="${state.weights[state.neuron][0]}" aria-label="共享权重数值"></label><input type="range" min="-2" max="2" step="0.1" value="${state.weights[state.neuron][0]}" id="shared-weight" aria-label="共享权重滑块"><p class="micro-note">改变同一个参数，同时重算所有节点。</p></div><div class="shared-output-list">${IDS.map(id=>`<div class="shared-output-row ${id===state.node?'active':''}"><span class="row-node">${id}</span><strong id="shared-out-${id}">${vec(compute(id).h,2)}</strong></div>`).join('')}</div><p class="explain" style="font-size:11px;margin-bottom:0">不同节点用同一行 W，但输入不同，所以输出可以不同。ReLU 也可能让部分输出保持为 0。</p>`;
+}
+function renderInspector(keepInput=false) {
+  const c=compute(state.node),titles=[`图节点 ${state.node}`,'特征不是计算单元',`第 ${state.feature+1} 维的聚合`,`神经元 ${state.neuron+1}`,'一份参数，处处使用'];
+  const subtitles=['对象、连接与状态','从向量，到标量','逐维求均值 → 拼接','加权求和 → ReLU','同一层内共享，跨层通常不同'];
+  $('inspector-title').textContent=titles[state.step];
+  $('inspector-subtitle').textContent=subtitles[state.step];
+  if(keepInput && state.step===3 && $('z-value')) {
+    const j=state.neuron;
+    $('z-value').textContent=`z${j+1} = ${fmt(c.z[j],3)}`;
+    $('h-value').textContent=`h′${j+1} = ${fmt(c.h[j],3)}`;
+    $('relu-note').textContent=reluText(c.z[j]);
+    c.x.forEach((x,i)=>{if($('product-'+i))$('product-'+i).textContent=fmt(x*state.weights[j][i],3);});
+    return;
+  }
+  if(keepInput && state.step===4 && $('shared-weight')) {
+    IDS.forEach(id=>$('shared-out-'+id).textContent=vec(compute(id).h,2));
+    if(document.activeElement!==$('shared-weight-number')) $('shared-weight-number').value=state.weights[state.neuron][0];
+    if(document.activeElement!==$('shared-weight')) $('shared-weight').value=state.weights[state.neuron][0];
+    return;
+  }
+  const renderers=[inspectorGraph,inspectorFeatures,inspectorAggregation,inspectorNeuron,inspectorSharing];
+  $('inspector-content').innerHTML=renderers[state.step](c);
+  $('inspector-footer').innerHTML=`<div class="subtle-badge"><i class="dot"></i>${state.step<2?'教学用特征，不对应具体物理量':state.step===2?'固定聚合操作，没有可训练参数':'示例权重，未经训练'}</div>`;
+  if($('weight-details')) $('weight-details').addEventListener('toggle',e=>{state.weightsOpen=e.currentTarget.open;});
+}
+function renderNarration() {
+  const id=state.node,c=compute(id),n=c.neighbors;
+  const messages=[
+    `<strong>先区分两种“节点”。</strong>图中的 ${id} 代表一个对象；它携带 3 个输入特征。神经元则是对这些数值进行计算的单元。`,
+    `<strong>打开节点 ${id} 的向量。</strong>h${id} = ${vec(state.features[id],1)}，其中每一项都是一个标量。单个神经元会读取多个标量。`,
+    `<strong>只收集直接相连的邻居。</strong>${n.length?'节点 '+id+' 从 '+n.join('、')+' 接收特征，逐维平均得到 m = '+vec(c.m,2)+'。':'节点 '+id+' 现在没有邻居，本例将其邻居摘要设为 [ 0, 0, 0 ]。'}再与自身的 3 维特征拼接成 6 维输入。`,
+    `<strong>这就是熟悉的神经元。</strong>每个输出单元读取 6 个数，用 W 的一行加权求和、加偏置，再经过 ReLU。3 个输出单元组成节点 ${id} 的新特征向量。`,
+    `<strong>整张图展开，就是一组组神经元计算。</strong>同一层的节点共享 W 和 b。图的连接决定输入从哪里来，共享参数决定怎样计算；播放不会把本层输出写回输入。`
+  ];
+  $('narration-index').textContent=`0${state.step+1} / 05`;
+  $('narration-text').innerHTML=messages[state.step];
+}
+function renderControls() {
+  document.querySelectorAll('[data-step]').forEach(button=>{
+    const idx=Number(button.dataset.step);
+    button.classList.toggle('active',idx===state.step);button.classList.toggle('done',idx<state.step);
+    if(idx===state.step)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');
+  });
+  $('prev').disabled=state.step===0;
+  $('next').disabled=state.step===4;
+  $('play').innerHTML=state.playing?'<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4v12M14 4v12" stroke-width="3"/></svg><span>暂停演示</span>':`<svg class="icon play-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l10-6.5z"/></svg><span>${state.step===4?'重新播放':'播放演示'}</span>`;
+  $('play').setAttribute('aria-pressed',String(state.playing));
+}
+function render({animate=false,editor=true,keepInput=false}={}) {
+  renderGraph();renderStage(animate);renderInspector(keepInput);renderNarration();renderControls();
+  if(editor)renderEditor();
+}
+function chooseNode(id) {
+  if(!IDS.includes(id))return;
+  pause();state.node=id;state.elapsed=0;render({animate:true});
+}
+function setStep(step) {
+  state.step=Math.max(0,Math.min(4,step));state.elapsed=0;
+  $('progress').style.width='0%';render({animate:true});
+}
+function navigate(step) {pause();setStep(step);}
+let frame=0,last=0;
+const durations=[6500,6500,9000,10500,8000];
+function tick(now) {
+  if(!state.playing)return;
+  const dt=last?Math.min(now-last,150):0;last=now;
+  state.elapsed+=dt*state.speed;
+  if(state.step===3) {
+    const j=Math.min(2,Math.floor(state.elapsed/3500));
+    if(j!==state.neuron){state.neuron=j;renderStage();renderInspector();}
+  }
+  $('progress').style.width=Math.min(100,state.elapsed/durations[state.step]*100)+'%';
+  if(state.elapsed>=durations[state.step]) {
+    if(state.step===4){pause();$('progress').style.width='100%';notify('演示完成。可以修改特征或权重，继续探索。');return;}
+    setStep(state.step+1);
+    if(state.step===3){state.neuron=0;renderStage();renderInspector();}
+  }
+  frame=requestAnimationFrame(tick);
+}
+function play() {
+  if(state.playing){pause();return;}
+  if(state.step===4)setStep(0);
+  state.playing=true;last=0;render({editor:false});frame=requestAnimationFrame(tick);
+}
+function pause() {
+  if(!state.playing)return;
+  state.playing=false;cancelAnimationFrame(frame);last=0;renderControls();renderGraph();renderStage();
+}
+let toastTimer=0;
+function notify(message) {clearTimeout(toastTimer);$('toast').textContent=message;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,3100);}
+function editableValue(input) {
+  if(input.value.trim()==='')return null;
+  const n=Number(input.value);
+  return Number.isFinite(n)?clean(n):null;
+}
+function handleInput(e) {
+  const input=e.target;
+  if(!(input instanceof HTMLInputElement))return;
+  if(input.type==='checkbox')return;
+  const value=editableValue(input);
+  if(value===null)return;
+  if(input.hasAttribute('data-feature-input')) {
+    pause();state.features[state.node][Number(input.dataset.featureInput)]=value;
+    render({editor:false});
+  } else if(input.hasAttribute('data-weight')) {
+    pause();state.weights[state.neuron][Number(input.dataset.weight)]=value;
+    renderStage();renderInspector(true);
+  } else if(input.hasAttribute('data-bias')) {
+    pause();state.bias[state.neuron]=value;renderStage();renderInspector(true);
+  } else if(input.id==='shared-weight'||input.id==='shared-weight-number') {
+    pause();state.weights[state.neuron][0]=value;renderStage();renderInspector(true);
+  }
+}
+function normalizeInput(e) {
+  const input=e.target;
+  if(!(input instanceof HTMLInputElement)||input.type!=='number')return;
+  const value=editableValue(input);
+  if(input.hasAttribute('data-feature-input'))input.value=state.features[state.node][Number(input.dataset.featureInput)];
+  else if(input.hasAttribute('data-weight'))input.value=state.weights[state.neuron][Number(input.dataset.weight)];
+  else if(input.hasAttribute('data-bias'))input.value=state.bias[state.neuron];
+  else if(input.id==='shared-weight-number')input.value=state.weights[state.neuron][0];
+  if(value===null)notify('请输入有效数字，已保留上一个数值。');
+}
+document.addEventListener('click',e=>{
+  const target=e.target.closest('[data-step],[data-node],[data-feature],[data-neuron]');
+  if(!target)return;
+  if(target.hasAttribute('data-step'))navigate(Number(target.dataset.step));
+  else if(target.hasAttribute('data-node'))chooseNode(target.dataset.node);
+  else if(target.hasAttribute('data-feature')) {
+    pause();state.feature=Number(target.dataset.feature);render({editor:false});
+  } else if(target.hasAttribute('data-neuron')) {
+    pause();state.neuron=Number(target.dataset.neuron);render({editor:false});
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.target.closest('input,select,textarea,summary,[contenteditable="true"]'))return;
+  if(e.target.closest('[role="button"]')&&(e.key==='Enter'||e.key===' ')) {
+    e.preventDefault();e.target.closest('[role="button"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));return;
+  }
+  // Native buttons keep their standard Space / Enter activation.
+  if(e.key===' '&&!e.target.closest('button,a')){e.preventDefault();play();}
+  else if(e.key==='ArrowRight'){e.preventDefault();navigate(state.step+1);}
+  else if(e.key==='ArrowLeft'){e.preventDefault();navigate(state.step-1);}
+});
+$('play').addEventListener('click',play);
+$('prev').addEventListener('click',()=>navigate(state.step-1));
+$('next').addEventListener('click',()=>navigate(state.step+1));
+$('speed').addEventListener('change',e=>{state.speed=Number(e.target.value);renderGraph();renderStage();});
+$('edit-features').addEventListener('click',()=>{pause();state.editor=!state.editor;renderEditor();});
+$('feature-editor').addEventListener('change',e=>{
+  if(e.target.hasAttribute('data-edge')) {
+    pause();const key=edgeKey(state.node,e.target.dataset.edge);
+    if(e.target.checked)state.edges.add(key);else state.edges.delete(key);
+    render({editor:false,animate:true});
+  }
+});
+document.addEventListener('input',handleInput);
+document.addEventListener('focusout',normalizeInput);
+$('reset').addEventListener('click',()=>{
+  pause();Object.assign(state,{step:0,node:'A',neuron:0,feature:0,features:structuredClone(BASE_FEATURES),weights:structuredClone(BASE_W),bias:[...BASE_B],edges:new Set(BASE_EDGES),speed:1,elapsed:0,editor:false,weightsOpen:false});
+  $('speed').value='1';$('progress').style.width='0%';render({animate:true});notify('已恢复初始图、特征与共享参数。');
+});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+reducedMotion.addEventListener('change',()=>{renderGraph();renderStage();});
+render();
+})();
+</script>
+
+</body>
+</html>
