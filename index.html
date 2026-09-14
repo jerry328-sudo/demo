@@ -1,145 +1,132 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Patrick 的个人 Demo 展示</title>
+  <meta name="description" content="物理、人工智能与工具相关的笔记和交互演示。">
+  <title>Patrick 的笔记本</title>
   <link rel="icon" type="image/webp" href="assets/images/cropped-logo1.webp">
-  <link rel="stylesheet" href="css/main.css">
-  <script src="js/main.js" defer></script>
+  <link rel="stylesheet" href="css/main.css?v=20260914">
+  <script src="js/main.js?v=20260914" defer></script>
 </head>
-
-<body>
-  <main>
-    <header>
-      <span class="eyebrow">实验室</span>
-      <h1>个人 Demo 展示页</h1>
-      <p class="intro">
-        收集整理近期的可视化与交互式小项目，便于快速预览与分享。以下内容将持续更新，欢迎探索每一个动手实践的瞬间。
-      </p>
-      <span class="status-strip"><span class="status-dot"></span>最新更新：几何引力与 GNN 交互演示</span>
+<body class="lab-home">
+  <a class="skip-link" href="#directory">跳转到项目目录</a>
+  <nav class="lab-nav" aria-label="主导航">
+    <a class="lab-brand" href="index.html" aria-label="Patrick 的笔记本首页">Patrick / <span>Notes</span></a>
+    <a href="#directory">项目目录 <span aria-hidden="true">↘</span></a>
+  </nav>
+  <main class="lab-main">
+    <header class="lab-hero">
+      <h1>Patrick 的笔记本</h1>
+      <p>一些学习笔记、交互演示和常用工具，按主题整理在这里。</p>
     </header>
-
-    <section class="demo-grid" aria-label="Demo 列表">
-      <article class="card">
-        <span class="badge">广义相对论</span>
-        <h2>几何即引力：交互式相对论课堂</h2>
-        <p>
-          通过 11 个可交互实验，从度规、固有时间与测地线逐步理解曲率、爱因斯坦场方程、牛顿极限与史瓦西时空。
-        </p>
-        <footer>
-          <span>2026 · 交互课堂</span>
-          <a href="demos/gravity/index.html" target="_blank" rel="noopener">打开演示 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">图神经网络</span>
-        <h2>GNN：从图节点到单个神经元</h2>
-        <p>
-          将图节点展开为自身特征、邻居聚合与神经元计算，交互观察 GraphSAGE 风格消息传递和共享权重如何影响整张图。
-        </p>
-        <footer>
-          <span>2026 · 交互实验</span>
-          <a href="demos/gnn-neuron/index.html" target="_blank" rel="noopener">打开演示 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">星际航行</span>
-        <h2>星际旅行燃料计算器</h2>
-        <p>
-          基于齐奥尔科夫斯基火箭方程（相对论形式），计算光子火箭在给定最大速度下，进行往返机动所需的正反物质燃料质量。
-        </p>
-        <footer>
-          <span>2025 · 交互演示</span>
-          <a href="demos/interstellar.html" target="_blank" rel="noopener">打开计算器 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">狭义相对论</span>
-        <h2>1+1 维洛伦兹时空（Minkowski 图）</h2>
-        <p>
-          基于 Three.js 的闵可夫斯基时空图交互演示，可调节相对速度观察坐标系变换、光锥、双曲线与速度合成公式，直观理解洛伦兹变换的几何意义。
-        </p>
-        <footer>
-          <span>2025 · Three.js 演示</span>
-          <a href="demos/lorentz.html" target="_blank" rel="noopener">打开演示 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">固体物理</span>
-        <h2>布里渊区采样三维交互</h2>
-        <p>
-          基于 Three.js 的第一布里渊区可视化工具，支持 Monkhorst-Pack 与 Γ 点采样，并可互动调整网格密度、颜色与透明度，实时观察采样点布局。
-        </p>
-        <footer>
-          <span>2025 · Three.js 演示</span>
-          <a href="demos/brillouin_sampling.html" target="_blank" rel="noopener">打开演示 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">卷积神经网络</span>
-        <h2>CNN 卷积核交互式可视化</h2>
-        <p>
-          Conv1d 可视化实验，支持动态调整序列长度、通道数、卷积核大小与扩张率，并通过动画演示卷积窗口的滑动与特征图生成过程。
-        </p>
-        <footer>
-          <span>2025 · 浏览器端</span>
-          <a href="demos/cnn-conv1d.html" target="_blank" rel="noopener">打开演示 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">强化学习</span>
-        <h2>CartPole：MLP 控制小车-倒立摆</h2>
-        <p>
-          基于经典 CartPole 环境的实时可视化演示。展示训练后的多层感知机如何在噪声环境中保持平衡，并绘制关键指标与策略细节。
-        </p>
-        <footer>
-          <span>2025 · 浏览器端</span>
-          <a href="demos/CartPole.html" target="_blank" rel="noopener">打开演示 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">图表工具</span>
-        <h2>Mermaid 在线编辑器</h2>
-        <p>
-          简洁高效的 Mermaid 图表编辑工具，支持流程图、时序图、甘特图等多种图表类型的实时预览与编辑，无需本地安装即可快速创建专业图表。
-        </p>
-        <footer>
-          <span>2025 · 在线工具</span>
-          <a href="https://mermaid.echem.website/" target="_blank" rel="noopener">打开编辑器 →</a>
-        </footer>
-      </article>
-
-      <article class="card">
-        <span class="badge">Coming Soon</span>
-        <h2>更多项目筹备中</h2>
-        <p>
-          规划中的实验包括视觉 Transformer、扩散模型艺术化生成、交互式算法沙箱等。敬请期待，也欢迎提出你想看的主题！
-        </p>
-        <footer>
-          <span>持续创作</span>
-          <span>敬请期待更新</span>
-        </footer>
-      </article>
+    <section id="directory" class="directory" aria-labelledby="directory-title">
+      <div class="directory-heading">
+        <h2 id="directory-title">项目目录</h2>
+        <span class="result-count" data-result-count role="status" aria-live="polite">共 8 个项目</span>
+      </div>
+      <div class="directory-controls" hidden>
+        <label class="project-search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+          <span class="visually-hidden">搜索项目、关键词</span>
+          <input type="search" name="search" placeholder="搜索项目、关键词" autocomplete="off">
+        </label>
+        <div class="category-filters" role="group" aria-label="按类别筛选项目">
+          <button type="button" data-filter="all" aria-pressed="true">全部 <span>08</span></button>
+          <button type="button" data-filter="physics" aria-pressed="false">物理与宇宙 <span>04</span></button>
+          <button type="button" data-filter="ai" aria-pressed="false">人工智能 <span>03</span></button>
+          <button type="button" data-filter="tools" aria-pressed="false">效率工具 <span>01</span></button>
+        </div>
+      </div>
+      <div class="demo-grid">
+        <section class="project-group" data-category="physics" aria-labelledby="physics-title">
+          <header class="group-heading">
+            <h3 id="physics-title">物理与宇宙</h3>
+            <p>相对论、星际航行与固体物理。</p>
+          </header>
+          <div class="project-list">
+            <article class="project-row">
+              <a href="demos/gravity/index.html" target="_blank" rel="noopener" aria-label="几何即引力：交互式相对论课堂（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">01</span>
+                <div class="project-copy"><h4>几何即引力：交互式相对论课堂</h4><p>11 个交互实验，从度规与测地线，逐步理解爱因斯坦场方程。</p></div>
+                <span class="project-topic">广义相对论</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+            <article class="project-row">
+              <a href="demos/interstellar.html" target="_blank" rel="noopener" aria-label="星际旅行燃料计算器（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">02</span>
+                <div class="project-copy"><h4>星际旅行燃料计算器</h4><p>调整飞行速度，计算光子火箭往返航行所需的正反物质燃料。</p></div>
+                <span class="project-topic">星际航行</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+            <article class="project-row" data-keywords="Minkowski Three.js 狭义相对论">
+              <a href="demos/lorentz.html" target="_blank" rel="noopener" aria-label="洛伦兹时空图（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">03</span>
+                <div class="project-copy"><h4>洛伦兹时空图</h4><p>交互观察闵可夫斯基时空中的坐标变换、光锥与速度合成。</p></div>
+                <span class="project-topic">狭义相对论</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+            <article class="project-row" data-keywords="Three.js Monkhorst-Pack Gamma Γ">
+              <a href="demos/brillouin_sampling.html" target="_blank" rel="noopener" aria-label="布里渊区采样三维交互（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">04</span>
+                <div class="project-copy"><h4>布里渊区采样三维交互</h4><p>调整网格密度与采样方式，在三维空间中探索第一布里渊区。</p></div>
+                <span class="project-topic">固体物理</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+          </div>
+        </section>
+        <section class="project-group" data-category="ai" aria-labelledby="ai-title">
+          <header class="group-heading">
+            <h3 id="ai-title">人工智能</h3>
+            <p>神经网络与强化学习。</p>
+          </header>
+          <div class="project-list">
+            <article class="project-row" data-keywords="GraphSAGE 机器学习">
+              <a href="demos/gnn-neuron/index.html" target="_blank" rel="noopener" aria-label="GNN：从图节点到单个神经元（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">05</span>
+                <div class="project-copy"><h4>GNN：从图节点到单个神经元</h4><p>展开节点特征与邻居聚合，观察消息传递和共享权重的作用。</p></div>
+                <span class="project-topic">图神经网络</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+            <article class="project-row" data-keywords="Conv1d 机器学习">
+              <a href="demos/cnn-conv1d.html" target="_blank" rel="noopener" aria-label="CNN 卷积核交互式可视化（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">06</span>
+                <div class="project-copy"><h4>CNN 卷积核交互式可视化</h4><p>调整通道、卷积核与扩张率，直观看懂一维卷积的计算过程。</p></div>
+                <span class="project-topic">卷积神经网络</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+            <article class="project-row" data-keywords="MLP 多层感知机 倒立摆 机器学习">
+              <a href="demos/CartPole.html" target="_blank" rel="noopener" aria-label="CartPole：小车与倒立摆（在新标签页打开）">
+                <span class="project-number" aria-hidden="true">07</span>
+                <div class="project-copy"><h4>CartPole：小车与倒立摆</h4><p>观察训练后的神经网络，如何在噪声环境中控制小车与倒立摆。</p></div>
+                <span class="project-topic">强化学习</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+          </div>
+        </section>
+        <section class="project-group" data-category="tools" aria-labelledby="tools-title">
+          <header class="group-heading">
+            <h3 id="tools-title">效率工具</h3>
+            <p>图表编辑与实用工具。</p>
+          </header>
+          <div class="project-list">
+            <article class="project-row" data-keywords="流程图 时序图 甘特图">
+              <a href="https://mermaid.echem.website/" target="_blank" rel="noopener" aria-label="Mermaid 在线编辑器（外部网站，在新标签页打开）">
+                <span class="project-number" aria-hidden="true">08</span>
+                <div class="project-copy"><h4>Mermaid 在线编辑器</h4><p>用文本绘制流程图、时序图与甘特图，实时预览，让想法可视化。</p></div>
+                <span class="project-topic">图表工具 · 外站</span><span class="project-arrow" aria-hidden="true">↗</span>
+              </a>
+            </article>
+          </div>
+        </section>
+      </div>
+      <div class="empty-state" hidden>
+        <h3>没有找到匹配的项目</h3>
+        <p>试试其他关键词，或返回全部项目继续浏览。</p>
+        <button type="button" data-reset>查看全部项目 <span aria-hidden="true">↗</span></button>
+      </div>
     </section>
-
-    <section class="cta-section" aria-label="补充信息">
-      <h3>喜欢某个 Demo？</h3>
-      <p>欢迎分享给身边的朋友，或发送邮件讨论改进想法，让项目继续成长。</p>
-    </section>
-
-    <footer class="page-footer">
-      <span>© <span data-current-year>2025</span> Patrick. 保留所有权利。</span>
-    </footer>
+    <footer class="lab-footer"><span>© <span data-current-year>2026</span> Patrick</span><span>笔记与演示</span></footer>
   </main>
 </body>
-
 </html>

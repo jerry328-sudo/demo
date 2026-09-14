@@ -55,3 +55,9 @@ python3 -m http.server 8000
 ## 许可证
 
 此项目根据MIT许可证提供。有关详细信息，请参见LICENSE。
+
+## 首页目录维护
+
+首页按「物理与宇宙」「人工智能」「效率工具」分组。新增条目时，在 `index.html` 对应的 `.project-list` 中添加 `.project-row`，保留标题、说明和链接；可通过 `data-keywords` 补充搜索别名。分类数量由脚本按实际条目计算，搜索与类别筛选可同时使用。禁用 JavaScript 时仍显示完整目录。
+
+首页样式限定在 `.lab-home` 下，避免影响使用共享样式的演示页。运行 `npm run check` 可检查首页脚本语法；`npm run build` 仅用于 CI/远端确认静态站点无需构建。

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "check": "node --check js/main.js",
     "build": "echo \"Static site build step not required\""
   }
 }
