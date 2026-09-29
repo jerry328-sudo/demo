@@ -10,6 +10,7 @@ demo/
 ├── package.json            # 项目配置文件
 ├── LICENSE                 # MIT 许可证
 ├── README.md               # 项目说明文档
+├── AGENTS.md               # 项目规范与新增内容流程
 ├── esa.jsonc               # ESA 配置文件
 ├── css/                    # 全局样式资源
 │   └── main.css           # 主样式表
@@ -27,9 +28,11 @@ demo/
 │   ├── cnn-conv1d.html    # CNN 卷积核可视化
 │   ├── CartPole.html      # CartPole 强化学习演示
 │   ├── gravity/           # 几何即引力交互课堂
-│   └── gnn-neuron/        # GNN 神经元交互实验
+│   ├── gnn-neuron/        # GNN 神经元交互实验
+│   └── gnn-visual/        # GNN 模型与超参数可视化入门
 └── docs/                   # 项目文档
-    └── AGENTS.md          # AI Agents 相关文档
+    ├── PROJECT_STRUCTURE.md
+    └── REFACTORING_SUMMARY.md
 ```
 
 ## 开始使用
@@ -51,6 +54,7 @@ python3 -m http.server 8000
 - **CartPole 强化学习** - MLP 控制倒立摆演示
 - **几何即引力** - 从度规到爱因斯坦场方程的交互式相对论课堂
 - **GNN 神经元实验** - 从图节点、邻居聚合到单个神经元的交互演示
+- **图神经网络可视化入门** - 消息传递、GCN、GraphSAGE、GAT、GIN 与训练超参数实验
 
 ## 许可证
 

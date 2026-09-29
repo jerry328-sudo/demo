@@ -1,117 +1,56 @@
-# Repository Guidelines
+# 项目规范与新增内容流程
 
-## Project Structure & Module Organization
+本仓库是静态笔记与交互演示站点。根目录 `index.html` 是项目目录；演示项目放在 `demos/`。新增文件进入仓库，并不等于它已经出现在首页目录。
 
-### 📁 Directory Structure
-The project follows a modular, engineering-oriented folder structure:
+## 操作边界
 
-```
-demo/
-├── index.html              # Main entry point
-├── package.json            # Project configuration
-├── esa.jsonc               # ESA configuration
-├── LICENSE                 # MIT License
-├── README.md               # Project documentation
-├── .gitignore              # Git ignore rules
-│
-├── css/                    # Global styles (shared across all pages)
-│   └── main.css           
-│
-├── js/                     # Global scripts (shared across all pages)
-│   └── main.js            
-│
-├── assets/                 # Static resources
-│   └── images/            # Image files (logos, icons, etc.)
-│
-├── demos/                  # All demo projects
-│   ├── *.html             # Individual demo pages
-│   ├── *.js               # Demo-specific scripts
-│   └── [demo-name]/       # Complex demos with multiple modules
-│
-└── docs/                   # Project documentation
-    ├── AGENTS.md          # This file
-    ├── PROJECT_STRUCTURE.md   # Detailed structure guide
-    └── REFACTORING_SUMMARY.md # Refactoring history
-```
+- 遵守用户明确指定的范围，保留现有改动，不顺手清理、重构或发布其他内容。
+- 用户只要求移动、重命名等简单明确操作时，只执行该操作和确认结果所必需的最少步骤。若报错或结果异常，立即停止，说明原始错误、已执行步骤和可能的部分变化，等待用户决定；不要自行改用复制、删除、改权限等方案。
+- 上述“出错即停”规则只适用于简单操作；排查、开发、修复等复杂任务可在授权范围内持续迭代。
+- 用户明确说“只移动文件/目录”时，仅完成移动与确认。用户要把一个新项目加入本站、作为演示使用，或希望在目录里找到它时，按完整新增流程处理，包含首页登记与验证；不要把“文件已入库”误报为“网站已收录”。
+- 提交、推送、部署以用户当次或当前工作链中已有的授权为准。只暂存本次相关文件，不覆盖或夹带其他人的改动。
 
-### 🎯 Adding New Demo Projects
+## 当前结构
 
-When creating a new demo, follow these steps:
+| 位置 | 用途 |
+| --- | --- |
+| `index.html` | 首页项目目录、分类、搜索入口和卡片内容 |
+| `css/main.css` | 共享样式；首页相关规则限定在 `.lab-home` 下 |
+| `js/main.js` | 首页筛选、搜索、数量和页脚年份 |
+| `demos/*.html` | 简单演示的页面 |
+| `demos/<name>/index.html` | 多文件演示的入口；同目录可有自己的 `css/`、`js/`、图片等 |
+| `assets/images/` | 站点共用图片与图标 |
+| `docs/` | 项目说明与历史文档 |
+| `package.json` | 可发现的检查命令；本项目不需要编译产物 |
+| `CNAME`、`esa.jsonc` | 当前域名和静态托管配置 |
 
-1. **Create demo files in `demos/` folder:**
-   - Simple demo: `demos/my-demo.html` + `demos/my-demo.js` (if needed)
-   - Complex demo: `demos/my-demo/` folder with multiple files
+根目录不要堆放演示页面或临时项目。首页保持“笔记本目录”的简洁风格；单个演示可以有自己的视觉设计，但样式应尽量局限于该演示，避免影响首页或其他页面。不要在未经商量的情况下引入框架或构建系统。
 
-2. **Resource references (from demo pages):**
-   ```html
-   <!-- Favicon -->
-   <link rel="icon" type="image/webp" href="../assets/images/cropped-logo1.webp">
-   
-   <!-- Global CSS -->
-   <link rel="stylesheet" href="../css/main.css">
-   
-   <!-- Demo-specific script -->
-   <script src="./my-demo.js"></script>
-   <!-- OR for modular demos -->
-   <script type="module" src="./my-demo/main.js"></script>
-   
-   <!-- Back link -->
-   <a href="../index.html">← 返回实验室主页</a>
-   ```
+这里的“内容”包括笔记页面、交互演示和外部工具链接。站内页面按演示文件放置并登记首页；外部工具只需登记准确外链并标注“外站”；仅供维护的文档放在 `docs/`，除非用户要公开展示，否则不占首页目录条目。
 
-3. **Register in `index.html`:**
-   Add a card in the `demo-grid` section:
-   ```html
-   <article class="card">
-     <span class="badge">Category</span>
-     <h2>Demo Title</h2>
-     <p>Demo description...</p>
-     <footer>
-       <span>2026 · Type</span>
-       <a href="demos/my-demo.html" target="_blank" rel="noopener">打开演示 →</a>
-     </footer>
-   </article>
-   ```
+## 新增一个演示的完整流程
 
-4. **Asset management:**
-   - Images → `assets/images/`
-   - Shared styles → `css/main.css`
-   - Shared scripts → `js/main.js`
-   - Demo-specific files → `demos/`
+1. **确认内容和目标路径。** 查看现有 `demos/`，避免同名覆盖。简单页面使用 `demos/<name>.html`，多文件项目使用 `demos/<name>/index.html`。从 `tmp/` 导入时，先核对所有文件和内部资源引用，再移动到目标位置。
+2. **检查相对路径。** 首页到演示使用 `demos/<name>.html` 或 `demos/<name>/index.html`；演示内资源使用相对于其入口页的路径。嵌套目录返回首页通常是 `../../index.html`，`demos/*.html` 返回首页是 `../index.html`。图片、CSS、JS 的引用都要从最终位置重新核对。目录型演示在公开链接中明确写 `index.html`，避免托管环境不解析目录 URL。
+3. **在首页登记。** 在 `index.html` 对应分类的 `.project-list` 内添加 `.project-row`，使用现有卡片结构；填写准确标题、简短说明、主题、`aria-label` 和可搜索的 `data-keywords`。新标签链接保留 `target="_blank" rel="noopener"`。不要只复制文件而漏掉这一步。
+4. **同步目录元数据。** 保持 `.project-number` 顺序连续，更新首页静态的“共 N 个项目”和分类按钮里的静态数字。`js/main.js` 会在脚本运行后按真实条目重新计数，但静态值也应正确，以便脚本未加载时仍可信。必要时更新 `README.md` 的项目清单与结构说明。
+5. **验证可用性。** 打开首页，确认新条目出现；检查对应分类、关键词搜索、重置筛选、项目总数、页脚年份。点击或直接打开新演示入口，检查主要交互、控制台错误、手机布局，以及页面引用的本地 CSS、JS、图片是否加载。涉及科学计算时核对公式、边界条件和显示数据，不用只重复实现逻辑的测试冒充验证。
+6. **发布后复核。** 在获得提交/推送授权后，先确认分支与远端差异，只暂存相关文件，再提交和正常推送。检查 Pages 部署结果，并访问公开域名的首页、新演示的显式入口和必要资源；区分“已推送”与“已上线”。
 
-### 📂 File Placement Rules
+首页现有分类是“物理与宇宙”“人工智能”“效率工具”。筛选逻辑依赖 `.project-row`、`.project-group[data-category]` 和 `data-keywords`，修改结构时要同步检查 `js/main.js`。纯内容条目优先沿用现有样式，不为一张新卡片改共享布局。
 
-- **Root level:** Only `index.html`, config files, and documentation
-- **`demos/`:** All HTML demo pages and their specific scripts/modules
-- **`assets/images/`:** All image files (`.webp`, `.png`, `.svg`, etc.)
-- **`css/`:** Global stylesheets shared across pages
-- **`js/`:** Global scripts shared across pages
-- **`docs/`:** Technical documentation and guides
+## 代码与资源约定
 
-### 🔗 Path Reference Patterns
+- HTML 使用语义化的 `main`、`header`、`section`、`footer` 等结构，保持两空格缩进；表单控件配有标签，交互结果可被读屏软件感知。
+- CSS 类名采用小写连字符。共享主题色和渐变集中在 `css/main.css`；演示专用样式放在 `demos/` 的同名 CSS 或项目子目录中，避免大面积内联样式。
+- JavaScript 使用现代 ES 语法、清晰命名和必要的边界检查。若新增检查脚本或命令，同步更新 `package.json` 的 `scripts`。
+- 尽量使用相对路径和大小写准确的文件名，以兼容 GitHub Pages 与其他静态托管；不要依赖本机绝对路径。外部 CDN 资源应确认加载失败时页面的实际表现。
+- `assets/images/` 存放站点共用图片；只供某个复杂演示使用的资源可留在该演示目录。
 
-| From | To | Path |
-|------|-----|------|
-| `index.html` | Global CSS | `css/main.css` |
-| `index.html` | Global JS | `js/main.js` |
-| `index.html` | Images | `assets/images/file.webp` |
-| `index.html` | Demo pages | `demos/demo-name.html` |
-| `demos/*.html` | Global CSS | `../css/main.css` |
-| `demos/*.html` | Global JS | `../js/main.js` |
-| `demos/*.html` | Images | `../assets/images/file.webp` |
-| `demos/*.html` | Demo script | `./demo-name.js` |
-| `demos/*.html` | Back to home | `../index.html` |
+## 检查与提交
 
-When adding content, maintain these relative path conventions to ensure GitHub Pages hosting remains functional.
-
-## Build, Test, and Development Commands
-There is no local debugging workflow; commit changes directly to the static files. The `npm run build` script is reserved for CI or remote validation and simply confirms that no additional build step is required—keep its output explicit. Whenever scripts change, update `package.json` so contributors can discover them through `npm run`. If a command must run in a particular remote environment, document that execution flow in the pull request description.
-
-## Coding Style & Naming Conventions
-Author HTML with semantic sections (`main`, `header`, `footer`) and two-space indentation. CSS selectors use lowercase kebab-case; extend existing utility classes instead of inlining styles. Maintain gradients and color tokens near the top of `css/main.css` so theme adjustments stay manageable. JavaScript should rely on modern ES2015+ patterns with early returns and guard clauses, mirroring the `data-current-year` handler. Favor descriptive variable names and avoid introducing frameworks without prior agreement.
-
-## Testing Guidelines
-No automated test harness exists, so validation happens in the deployment environment. After pushing, view the latest branch on GitHub Pages (or the equivalent hosting preview) to ensure cards render, links resolve, and the footer year updates correctly. When altering an interactive demo, include a short sanity checklist in the PR (for example, “CartPole animation runs for 60s without console errors”). If you add automated linting or visual regression checks, record the corresponding commands in the section above.
-
-## Commit & Pull Request Guidelines
-Commits should remain concise and action-led; the history uses short Mandarin summaries like `新增...`, which you may mirror in Mandarin or tight English and keep under 72 characters. Pull requests must provide: (1) a brief problem statement, (2) a bullet list of key changes, (3) before/after screenshots or GIFs for UI updates, and (4) links to related issues. When touching shared CSS or the landing page layout, request at least one reviewer.
+- `npm run check`：检查首页和已登记演示脚本的语法。
+- `npm run check:brillouin`、`npm run check:cnn`：运行对应计算逻辑测试。
+- `npm run build`：明确提示静态站点无需额外构建；它不是页面可用性测试。
+- 修改页面后做一次有针对性的浏览器检查；新增入口至少检查链接、分类筛选、搜索和窄屏显示。不要为低影响改动增加没有意义的重复检查。
+- 提交信息简短、动作明确，尽量不超过 72 字符。若使用 PR，说明问题、主要改动、UI 前后截图及相关议题；改动共享 CSS 或首页布局时请至少一位审阅者。用户明确要求直接提交推送时，按其授权执行并核对远端状态。
