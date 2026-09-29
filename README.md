@@ -29,7 +29,8 @@ demo/
 │   ├── CartPole.html      # CartPole 强化学习演示
 │   ├── gravity/           # 几何即引力交互课堂
 │   ├── gnn-neuron/        # GNN 神经元交互实验
-│   └── gnn-visual/        # GNN 模型与超参数可视化入门
+│   ├── gnn-visual/        # GNN 模型与超参数可视化入门
+│   └── gcn-inductive/     # 新增节点与独立图的 GCN 归纳推理实验
 └── docs/                   # 项目文档
     ├── PROJECT_STRUCTURE.md
     └── REFACTORING_SUMMARY.md
@@ -55,6 +56,7 @@ python3 -m http.server 8000
 - **几何即引力** - 从度规到爱因斯坦场方程的交互式相对论课堂
 - **GNN 神经元实验** - 从图节点、邻居聚合到单个神经元的交互演示
 - **图神经网络可视化入门** - 消息传递、GCN、GraphSAGE、GAT、GIN 与训练超参数实验
+- **图变了，预测会变吗？** - 固定训练权重，比较测试时新节点、新图和 GCN 层数对原有节点预测的影响
 
 ## 许可证
 

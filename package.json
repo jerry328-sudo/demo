@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check js/main.js && node --check demos/brillouin_sampling.js && node --check demos/brillouin_sampling_math.js && node --check demos/cnn-conv1d.js && node --check demos/cnn-conv1d-math.js",
+    "check": "node --check js/main.js && node --check demos/brillouin_sampling.js && node --check demos/brillouin_sampling_math.js && node --check demos/cnn-conv1d.js && node --check demos/cnn-conv1d-math.js && node --check demos/gcn-inductive/model.js && node --check demos/gcn-inductive/app.js",
     "check:brillouin": "node --test demos/brillouin_sampling.test.js",
     "check:cnn": "node --test demos/cnn-conv1d.test.js",
+    "check:gcn": "node --test demos/gcn-inductive/model.test.js",
     "build": "echo \"Static site build step not required\""
   }
 }
