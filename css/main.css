@@ -247,7 +247,8 @@ footer.page-footer a {
 }
 .lab-home .lab-brand { font-size: 19px; font-weight: 650; letter-spacing: -.5px; }
 .lab-home .lab-brand span { color: var(--notebook-accent); font-weight: 400; }
-.lab-home .lab-nav > a:last-child { color: var(--notebook-muted); }
+.lab-home .lab-nav-links { display: flex; align-items: center; gap: 24px; color: var(--notebook-muted); }
+.lab-home .lab-nav-links a:hover { color: var(--notebook-accent); }
 .lab-home .lab-main {
   display: block;
   width: min(1120px, 100%);
@@ -307,7 +308,8 @@ footer.page-footer a {
 @media (max-width: 600px) {
   .lab-home { padding: 0 20px; }
   .lab-home .lab-nav { height: 68px; }
-  .lab-home .lab-brand { font-size: 17px; }
+  .lab-home .lab-brand { font-size: 16px; }
+  .lab-home .lab-nav-links { gap: 10px; font-size: 12px; }
   .lab-home .lab-hero { padding: 34px 0; }
   .lab-home .category-filters { gap: 8px; margin-bottom: 22px; }
   .lab-home .category-filters button { padding: 10px 12px; }
