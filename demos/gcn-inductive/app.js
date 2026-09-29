@@ -1,4 +1,4 @@
-import { original, additions, graphAt, infer, probabilities } from './model.js?v=3';
+import { original, additions, graphAt, probabilities } from './model.js?v=4';
 
 const state = { step: 1, depth: 2, selected: 2 };
 const ns = 'http://www.w3.org/2000/svg';
@@ -15,7 +15,7 @@ let weights;
 const mobilePoints = [
   [60, 130], [158, 75], [158, 190], [275, 110], [250, 285],
   [290, 380], [165, 430], [270, 505], [60, 265], [70, 390],
-  [175, 315], [300, 210], [65, 650], [135, 595], [175, 710], [270, 615], [300, 735]
+  [175, 315], [300, 210], [55, 665], [155, 595], [175, 710], [270, 615], [300, 735]
 ];
 
 function svg(tag, attributes = {}, content) {
