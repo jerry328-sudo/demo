@@ -8,6 +8,8 @@ const elements = {
   stageCaption: document.querySelector('#stage-caption'),
   modeHelp: document.querySelector('#mode-help'),
   featureControl: document.querySelector('#feature-control'),
+  connectionControl: document.querySelector('#connection-control'),
+  connectionOptions: document.querySelector('#connection-options'),
   depth: document.querySelector('#depth'),
   depthValue: document.querySelector('#depth-value'),
   selectedName: document.querySelector('#selected-name'),
@@ -42,13 +44,9 @@ function drawNode(point, label, probability, options = {}) {
   if (options.index !== undefined) {
     group.setAttribute('role', 'button');
     group.setAttribute('tabindex', '0');
-    group.setAttribute('aria-label', `节点 ${label}，蓝类概率 ${(probability * 100).toFixed(1)}%，${state.mode === 'node' ? '点击切换连接并查看预测' : '点击查看预测'}`);
+    group.setAttribute('aria-label', `节点 ${label}，蓝类概率 ${(probability * 100).toFixed(1)}%，点击查看预测`);
     const activate = () => {
       state.selected = options.index;
-      if (state.mode === 'node') {
-        if (state.attached.has(options.index)) state.attached.delete(options.index);
-        else state.attached.add(options.index);
-      }
       render();
       elements.graph.querySelectorAll('.graph-node.original')[options.index]?.focus();
     };
@@ -67,7 +65,7 @@ function drawNode(point, label, probability, options = {}) {
 function drawGraph(after) {
   elements.graph.replaceChildren(
     svg('title', { id: 'graph-title' }, '测试图节点及新增节点'),
-    svg('desc', { id: 'graph-desc' }, '点击原有节点查看预测变化；接入节点模式下点击可切换连接。')
+    svg('desc', { id: 'graph-desc' }, '点击原有节点查看预测变化；在右侧选择新节点的连接。')
   );
   const detached = state.mode === 'graph';
   const compact = window.matchMedia('(max-width: 700px)').matches;
@@ -91,7 +89,10 @@ function drawGraph(after) {
   for (const [i, j] of original.edges) drawLine(points[i], points[j], 'edge');
   if (!detached) {
     for (const i of state.attached) drawLine(points[i], added, 'edge edge-added');
-    drawNode(added, 'N+', state.feature === 'negative' ? 0.03 : 0.97, { kind: 'added' });
+    const signal = state.feature === 'negative' ? -0.98 : 0.98;
+    const allEdges = [...original.edges, ...[...state.attached].map(node => [node, original.names.length])];
+    const addedPrediction = infer([...original.signals, signal], allEdges, state.depth, weights).at(-1);
+    drawNode(added, 'N+', addedPrediction, { kind: 'added' });
   } else {
     const newGraphPredictions = infer(separate.signals, separate.edges, state.depth, weights);
     for (const [i, j] of separate.edges) drawLine(newPoints[i], newPoints[j], 'edge edge-separate');
@@ -128,6 +129,24 @@ function renderComparison() {
   }
 }
 
+function renderConnections() {
+  elements.connectionOptions.replaceChildren();
+  original.names.forEach((name, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = name;
+    button.setAttribute('aria-label', `连接新节点到 ${name}`);
+    button.setAttribute('aria-pressed', String(state.attached.has(index)));
+    button.addEventListener('click', () => {
+      if (state.attached.has(index)) state.attached.delete(index);
+      else state.attached.add(index);
+      render();
+      elements.connectionOptions.children[index]?.focus();
+    });
+    elements.connectionOptions.append(button);
+  });
+}
+
 function render() {
   const { before, after } = probabilities(state, weights);
   const selectedBefore = before[state.selected];
@@ -138,12 +157,13 @@ function render() {
 
   elements.stageTitle.textContent = state.mode === 'node' ? '接入一个新节点' : '加入一张独立图';
   elements.stageCaption.textContent = state.mode === 'node'
-    ? '点击原有节点，切换它与 N+ 的连接并查看预测'
+    ? '点击原有节点查看预测；在右侧切换与 N+ 的连边'
     : '点击原有节点，查看独立图加入前后的预测';
   elements.modeHelp.textContent = state.mode === 'node'
     ? '新节点接到测试图上，改变局部邻接关系和度归一化。'
     : '两张图不相连，原有测试图的输入完全不变。';
   elements.featureControl.hidden = state.mode === 'graph';
+  elements.connectionControl.hidden = state.mode === 'graph';
   elements.depth.value = state.depth;
   elements.depthValue.textContent = `${state.depth} 层`;
   elements.selectedName.textContent = original.names[state.selected];
@@ -162,6 +182,7 @@ function render() {
   document.querySelectorAll('[data-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === state.mode)));
   document.querySelectorAll('[data-feature]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.feature === state.feature)));
   drawGraph(after);
+  renderConnections();
   renderComparison();
 }
 

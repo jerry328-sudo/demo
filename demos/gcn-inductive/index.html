@@ -35,11 +35,11 @@
               <div><span class="small-label">测试图</span><h3 id="stage-title">接入一个新节点</h3></div>
               <div class="legend" aria-label="图例"><span><i class="legend-dot old"></i> 原有节点</span><span><i class="legend-dot new"></i> 新增节点</span></div>
             </div>
-            <svg id="graph" class="graph" viewBox="0 0 760 440" role="img" aria-labelledby="graph-title graph-desc">
+            <svg id="graph" class="graph" viewBox="0 0 760 440" role="group" aria-labelledby="graph-title graph-desc">
               <title id="graph-title">测试图节点及新增节点</title>
-              <desc id="graph-desc">点击原有节点查看预测变化；在接入节点模式下点击可切换它与新节点的连接。</desc>
+              <desc id="graph-desc">点击原有节点查看预测变化；在右侧选择新节点的连接。</desc>
             </svg>
-            <div class="stage-footer"><span class="stage-caption" id="stage-caption">点击节点切换连边；在右侧查看所选节点的预测</span><span class="stage-scale">节点填色代表当前预测类别</span></div>
+            <div class="stage-footer"><span class="stage-caption" id="stage-caption">点击原有节点，查看它的预测变化</span><span class="stage-scale">节点填色代表当前预测类别</span></div>
           </div>
 
           <div class="controls">
@@ -65,6 +65,11 @@
                 <button type="button" data-feature="negative" aria-pressed="true"><i class="feature-swatch orange"></i> 偏向橙类</button>
                 <button type="button" data-feature="positive" aria-pressed="false"><i class="feature-swatch blue"></i> 偏向蓝类</button>
               </div>
+            </div>
+
+            <div class="control-section" id="connection-control">
+              <span class="small-label">新节点连接到</span>
+              <div class="connection-options" id="connection-options" role="group" aria-label="选择新节点连接的原有节点"></div>
             </div>
 
             <div class="readout" aria-live="polite">
