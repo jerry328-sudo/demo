@@ -1,93 +1,309 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#081525" />
-    <link rel="icon" type="image/webp" href="../assets/images/cropped-logo1.webp" />
-    <link rel="stylesheet" href="./brillouin_sampling.css" />
-    <title>第一布里渊区采样 | 实验室</title>
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="app-header">
-        <div class="title-group">
-          <h1>第一布里渊区采样</h1>
-          <p>面心立方晶格 · 倒空间 k 点网格</p>
-        </div>
-        <a class="home-link" href="../index.html" aria-label="返回实验室主页">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z" /></svg>
-          返回实验室主页
-        </a>
-      </header>
-
-      <main class="workspace">
-        <section class="settings-panel" aria-labelledby="settings-title">
-          <h2 id="settings-title">参数设置</h2>
-          <div class="field">
-            <label for="method">采样方式</label>
-            <select id="method">
-              <option value="monkhorst">Monkhorst–Pack</option>
-              <option value="gamma">Γ 中心</option>
-            </select>
-          </div>
-
-          <fieldset class="mesh-field">
-            <legend>网格密度</legend>
-            <div class="mesh-inputs">
-              <label>N<sub>x</sub><input id="nx" type="number" min="1" max="16" step="1" value="6" inputmode="numeric" /></label>
-              <label>N<sub>y</sub><input id="ny" type="number" min="1" max="16" step="1" value="6" inputmode="numeric" /></label>
-              <label>N<sub>z</sub><input id="nz" type="number" min="1" max="16" step="1" value="6" inputmode="numeric" /></label>
-            </div>
-            <p class="field-hint">每个方向 1–16 个点</p>
-          </fieldset>
-
-          <div class="field">
-            <label for="color">点颜色</label>
-            <div class="color-control">
-              <input id="color" type="color" value="#00dfff" />
-              <output id="color-value" for="color">#00DFFF</output>
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="field-heading"><label for="opacity">点透明度</label><output id="opacity-value" for="opacity">0.80</output></div>
-            <input id="opacity" type="range" min="0" max="1" step="0.05" value="0.8" />
-          </div>
-
-          <div class="actions">
-            <button id="reset" class="button button-secondary" type="button">清空</button>
-            <button id="regenerate" class="button button-primary" type="button">重新生成</button>
-          </div>
-
-          <div class="sample-summary" aria-live="polite">
-            <span>总 k 点数</span>
-            <strong id="counter">0</strong>
-            <small id="grid-summary">6 × 6 × 6</small>
-          </div>
-        </section>
-
-        <section class="visual-panel" aria-label="第一布里渊区三维可视化">
-          <div id="visualization" class="visualization"></div>
-          <div class="canvas-caption">拖动旋转 <span></span> 滚轮缩放 <span></span> 右键平移</div>
-          <div class="legend" aria-label="图例">
-            <div><i class="legend-gamma"></i>Γ 点 (0, 0, 0)</div>
-            <div><i class="legend-sample"></i>采样 k 点</div>
-            <div><i class="legend-boundary"></i>第一布里渊区边界</div>
-          </div>
-          <p id="error-message" class="error-message" role="alert" hidden></p>
-        </section>
-      </main>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>金刚石的布里渊区与 k 点采样</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF0F3; --panel:#F8F9FB; --ink:#1B2533; --muted:#5B6878; --rule:#CBD3DC;
+  --bz1:#2F62C9; --bz2a:#D18A1C; --bz2b:#23887C; --kpt:#8A95A3; --kirr:#B8327E; --ibz:#6B4FC4;
+  --serif:"Newsreader","Songti SC","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif;
+  --sans:system-ui,-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F1722; --panel:#162131; --ink:#E4E9F0; --muted:#94A1B2; --rule:#2A384B;
+  --bz1:#6E9BF2; --bz2a:#F0B04A; --bz2b:#4CC3B3; --kpt:#7B889A; --kirr:#F06AB5; --ibz:#A28BF0; }}
+:root[data-theme="dark"]{
+  --bg:#0F1722; --panel:#162131; --ink:#E4E9F0; --muted:#94A1B2; --rule:#2A384B;
+  --bz1:#6E9BF2; --bz2a:#F0B04A; --bz2b:#4CC3B3; --kpt:#7B889A; --kirr:#F06AB5; --ibz:#A28BF0; }
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.55 var(--sans)}
+.app{display:grid;grid-template-columns:1fr 360px;height:100%}
+.stage{position:relative;min-height:0;overflow:hidden}
+#view{position:absolute;inset:0}
+#labels{position:absolute;inset:0;pointer-events:none}
+.lbl{position:absolute;transform:translate(-50%,-120%);font:italic 600 17px var(--serif);color:var(--ink);text-shadow:0 0 4px var(--bg),0 0 8px var(--bg);white-space:nowrap}
+.lbl.b{font-size:15px;color:var(--muted)}
+.title{position:absolute;left:22px;top:18px;max-width:min(520px,80%);pointer-events:none}
+.title h1{font:400 30px/1.1 var(--serif);margin:0;letter-spacing:-.01em}
+.title p{margin:6px 0 0;color:var(--muted);font:italic 16px/1.4 var(--serif)}
+.legend{position:absolute;left:22px;bottom:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);pointer-events:none}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+aside{background:var(--panel);border-left:1px solid var(--rule);overflow-y:auto;padding:20px 22px 28px}
+aside h2{font:600 17px var(--serif);margin:22px 0 10px}
+aside h2:first-child{margin-top:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:7px 0}
+label.chk{display:flex;align-items:center;gap:9px;cursor:pointer;margin:6px 0}
+input[type=checkbox]{accent-color:var(--bz1);width:16px;height:16px}
+input[type=range]{accent-color:var(--bz1);width:150px}
+.seg{display:flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+.seg button{flex:1;background:transparent;border:0;color:var(--ink);padding:7px 6px;font:13px var(--sans);cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--panel)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--bz1);outline-offset:2px}
+.val{font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
+.stats{display:grid;grid-template-columns:1fr auto;gap:3px 12px;font-variant-numeric:tabular-nums;margin-top:10px}
+.stats dt{color:var(--muted)} .stats dd{margin:0;text-align:right}
+.note{color:var(--muted);font-size:13px;margin:8px 0 0}
+.note i{font-family:var(--serif);font-size:15px}
+details{margin-top:12px} summary{cursor:pointer;color:var(--muted)}
+.tbl{overflow-x:auto;max-height:260px;overflow-y:auto;margin-top:6px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:12.5px}
+th,td{padding:3px 6px;text-align:right;border-bottom:1px solid var(--rule)} th{color:var(--muted);font-weight:500;position:sticky;top:0;background:var(--panel)}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr;grid-template-rows:62% auto;height:auto;min-height:100%}
+  .stage{height:62vh;min-height:360px}
+  aside{border-left:0;border-top:1px solid var(--rule)}
+  .title h1{font-size:23px}.title p{font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="view" aria-label="布里渊区三维视图，可拖拽旋转、滚轮缩放"></canvas>
+    <div id="labels"></div>
+    <div class="title">
+      <h1>金刚石的布里渊区</h1>
+      <p>面心立方晶格 → 体心立方倒格子，k 以 2π/a 为单位</p>
     </div>
+    <div class="legend">
+      <span style="--c:var(--bz1)">第一布里渊区</span>
+      <span style="--c:var(--bz2a)">第二区（{111} 片）</span>
+      <span style="--c:var(--bz2b)">第二区（{200} 片）</span>
+      <span style="--c:var(--ibz)">不可约楔形</span>
+      <span style="--c:var(--kirr)">不可约 k 点</span>
+    </div>
+  </div>
+  <aside>
+    <h2>布里渊区</h2>
+    <label class="chk"><input type="checkbox" id="c1" checked>第一布里渊区（截角八面体）</label>
+    <label class="chk"><input type="checkbox" id="c2" checked>第二布里渊区</label>
+    <div class="row"><span>第二区分离展开</span><input type="range" id="explode" min="0" max="1" step="0.01" value="0.35"></div>
+    <div class="row"><span>不透明度</span><input type="range" id="opac" min="0.05" max="0.9" step="0.01" value="0.28"></div>
+    <label class="chk"><input type="checkbox" id="cibz">不可约楔形（1/48）</label>
+    <label class="chk"><input type="checkbox" id="chs" checked>高对称点 Γ X L W K U</label>
+    <label class="chk"><input type="checkbox" id="cb" checked>倒格矢 b₁ b₂ b₃</label>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
-          "three/examples/jsm/": "https://unpkg.com/three@0.152.2/examples/jsm/"
-        }
-      }
-    </script>
-    <script type="module" src="./brillouin_sampling.js"></script>
-  </body>
+    <h2>k 点采样</h2>
+    <div class="seg" id="mode">
+      <button data-v="none" aria-pressed="false">关闭</button>
+      <button data-v="gamma" aria-pressed="true">Γ 中心</button>
+      <button data-v="mp" aria-pressed="false">Monkhorst–Pack</button>
+    </div>
+    <div class="row"><span>网格 N×N×N</span><span><input type="range" id="N" min="1" max="10" step="1" value="4"> <span class="val" id="Nv">4</span></span></div>
+    <div class="seg" id="place" style="margin-top:8px">
+      <button data-v="bz" aria-pressed="true">折叠进第一区</button>
+      <button data-v="cell" aria-pressed="false">倒格子原胞</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="conly">只显示不可约 k 点</label>
+    <dl class="stats" id="stats"></dl>
+    <p class="note" id="explain"></p>
+    <details><summary>不可约 k 点与权重</summary><div class="tbl"><table id="tbl"></table></div></details>
+    <p class="note">生成方式：<i>k</i> = Σ <i>u<sub>i</sub></i> <b>b</b><sub><i>i</i></sub>。Γ 中心取 <i>u</i> = (<i>r</i>−1)/<i>N</i>；MP 取 <i>u</i> = (2<i>r</i>−<i>N</i>−1)/(2<i>N</i>)，<i>r</i> = 1…<i>N</i>。N 为奇数时两者相同，偶数时 MP 相对 Γ 平移半个网格。对称约化使用 O<sub>h</sub> 的 48 个操作（金刚石点群 O<sub>h</sub>，含时间反演）。</p>
+  </aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const EPS=1e-9;
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=a=>Math.hypot(a[0],a[1],a[2]);
+// reciprocal lattice of FCC (units 2π/a): integer triples, all even or all odd
+function latticePoints(maxG2){const P=[];const R=Math.ceil(Math.sqrt(maxG2));
+ for(let i=-R;i<=R;i++)for(let j=-R;j<=R;j++)for(let k=-R;k<=R;k++){
+  const p=((i&1)+(j&1)+(k&1)); if(p!==0&&p!==3)continue;
+  const g2=i*i+j*j+k*k; if(g2===0||g2>maxG2)continue; P.push([i,j,k]);}
+ return P;}
+function cube(s){const F=[];for(let ax=0;ax<3;ax++)for(const sg of[1,-1]){
+ const n=[0,0,0];n[ax]=sg;const u=[0,0,0],w=[0,0,0];u[(ax+1)%3]=1;w[(ax+2)%3]=1;
+ const c=mul(n,s);const poly=[[1,1],[-1,1],[-1,-1],[1,-1]].map(([a,b])=>add(c,add(mul(u,a*s),mul(w,b*s))));
+ F.push({n,d:s,poly,tag:null});}return F;}
+function clip(F,nIn,dIn,tag){const L=norm(nIn);const n=mul(nIn,1/L),d=dIn/L;
+ let mx=-Infinity,mn=Infinity;for(const f of F)for(const p of f.poly){const s=dot(n,p)-d;mx=Math.max(mx,s);mn=Math.min(mn,s);}
+ if(mx<=1e-9)return F; if(mn>=-1e-9)return null;
+ const out=[],cap=[];
+ for(const f of F){const q=[];const m=f.poly.length;
+  for(let i=0;i<m;i++){const a=f.poly[i],b=f.poly[(i+1)%m];const da=dot(n,a)-d,db=dot(n,b)-d;
+   if(da<=1e-9){q.push(a);if(da>=-1e-9)cap.push(a);}
+   if((da<-1e-9&&db>1e-9)||(da>1e-9&&db<-1e-9)){const t=da/(da-db);const p=add(a,mul(sub(b,a),t));q.push(p);cap.push(p);}}
+  const qq=dedupe(q); if(qq.length>=3)out.push({n:f.n,d:f.d,poly:qq,tag:f.tag});}
+ const cp=dedupe(cap);
+ if(cp.length>=3){const c=cp.reduce((s,p)=>add(s,p),[0,0,0]).map(x=>x/cp.length);
+  let u=Math.abs(n[0])<0.9?[1,0,0]:[0,1,0];u=cross(n,u);u=mul(u,1/norm(u));const w=cross(n,u);
+  cp.sort((a,b)=>Math.atan2(dot(sub(a,c),w),dot(sub(a,c),u))-Math.atan2(dot(sub(b,c),w),dot(sub(b,c),u)));
+  out.push({n,d,poly:cp,tag});}
+ return out.length>=4?out:null;}
+function dedupe(P){const r=[];for(const p of P){if(!r.some(q=>Math.abs(q[0]-p[0])+Math.abs(q[1]-p[1])+Math.abs(q[2]-p[2])<1e-7))r.push(p);}return r;}
+function volume(F){let V=0;for(const f of F){const p0=f.poly[0];let A=[0,0,0];
+ for(let i=1;i<f.poly.length-1;i++)A=add(A,cross(sub(f.poly[i],p0),sub(f.poly[i+1],p0)));
+ V+=dot(f.n,p0)*Math.abs(dot(A,f.n))/2/3;}return V;}
+function firstBZ(Gs){let F=cube(4);for(const G of Gs){F=clip(F,G,dot(G,G)/2,G);if(!F)return null;}return F;}
+function secondBZ(Gs,cands){const pieces=[];
+ for(const G of cands){let F=cube(4);F=clip(F,mul(G,-1),-dot(G,G)/2,'self');
+  for(const H of Gs){if(!F)break;if(H[0]===G[0]&&H[1]===G[1]&&H[2]===G[2])continue;F=clip(F,H,dot(H,H)/2,H);}
+  if(F){const v=volume(F);if(v>1e-7)pieces.push({G,faces:F,vol:v});}}
+ return pieces;}
+// sampling
+const Binv=[[0,.5,.5],[.5,0,.5],[.5,.5,0]];const Bm=[[-1,1,1],[1,-1,1],[1,1,-1]];
+const fr2k=f=>[0,1,2].map(i=>f[0]*Bm[0][i]+f[1]*Bm[1][i]+f[2]*Bm[2][i]);
+const k2fr=k=>Binv.map(r=>dot(r,k));
+const OPS=[];{const perms=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+ for(const p of perms)for(let s=0;s<8;s++)OPS.push(k=>[p.map((pi,i)=>k[pi]*((s>>i)&1?-1:1))].flat());}
+function grid(N,mode){const u=[];for(let r=1;r<=N;r++)u.push(mode==='mp'?(2*r-N-1)/(2*N):(r-1)/N);
+ const pts=[];for(const a of u)for(const b of u)for(const c of u)pts.push([a,b,c]);return pts;}
+function key(k){const f=k2fr(k);return f.map(x=>{let v=Math.round(x*1e5)%100000;if(v<0)v+=100000;return v;}).join(',');}
+function canon(k){let best=null;for(const op of OPS){const s=key(op(k));if(best===null||s<best)best=s;}return best;}
+function fold(k,Gs){let best=k,bd=dot(k,k);for(const G of Gs){const q=sub(k,G);const d=dot(q,q);if(d<bd-1e-9){bd=d;best=q;}}return best;}
+// ---------- data ----------
+const Gs=latticePoints(24);
+const BZ1=firstBZ(Gs);
+const PIECES=secondBZ(Gs,latticePoints(12));
+let IBZ=BZ1;IBZ=clip(IBZ,[-1,1,0],0,'w');IBZ=clip(IBZ,[0,-1,1],0,'w');IBZ=clip(IBZ,[0,0,-1],0,'w');
+const HS={'Γ':[0,0,0],X:[1,0,0],L:[.5,.5,.5],W:[1,.5,0],K:[.75,.75,0],U:[1,.25,.25]};
+
+// ---------- three ----------
+const canvas=document.getElementById('view');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(36,1,0.1,100);
+camera.position.set(4.6,3.1,5.4);
+const controls=new THREE.OrbitControls(camera,canvas);controls.enableDamping=true;controls.target.set(0,0,0);
+scene.add(new THREE.AmbientLight(0xffffff,0.65));
+const dl=new THREE.DirectionalLight(0xffffff,0.55);dl.position.set(3,5,4);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,0.25);dl2.position.set(-4,-2,-3);scene.add(dl2);
+
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const V=a=>new THREE.Vector3(a[0],a[1],a[2]);
+
+function polyMesh(faces){
+  const pos=[],edge=[];
+  for(const f of faces){const p=f.poly;const n=f.n;
+    for(let i=1;i<p.length-1;i++){
+      let a=p[0],b=p[i],c=p[i+1];
+      if(dot(cross(sub(b,a),sub(c,a)),n)<0){const t=b;b=c;c=t;}
+      pos.push(...a,...b,...c);}
+    for(let i=0;i<p.length;i++)edge.push(...p[i],...p[(i+1)%p.length]);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.computeVertexNormals();
+  const eg=new THREE.BufferGeometry();eg.setAttribute('position',new THREE.Float32BufferAttribute(edge,3));
+  const mat=new THREE.MeshStandardMaterial({transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false,roughness:.55,metalness:0});
+  const lmat=new THREE.LineBasicMaterial({transparent:true,opacity:.9});
+  const grp=new THREE.Group();const m=new THREE.Mesh(g,mat);const l=new THREE.LineSegments(eg,lmat);
+  grp.add(m);grp.add(l);grp.userData={mat,lmat};return grp;}
+
+const g1=polyMesh(BZ1);scene.add(g1);
+const g2=new THREE.Group();scene.add(g2);
+const pieceObjs=PIECES.map(pc=>{const o=polyMesh(pc.faces);
+  let c=[0,0,0],n=0;pc.faces.forEach(f=>f.poly.forEach(p=>{c=add(c,p);n++;}));c=mul(c,1/n);
+  o.userData.dir=V(c).normalize();o.userData.shell=dot(pc.G,pc.G)===3?'a':'b';g2.add(o);return o;});
+const gI=polyMesh(IBZ);scene.add(gI);
+
+// b vectors
+const gB=new THREE.Group();scene.add(gB);
+const Bvec=[[-1,1,1],[1,-1,1],[1,1,-1]];const arrows=Bvec.map(b=>{const d=V(b);const L=d.length();
+  const a=new THREE.ArrowHelper(d.clone().normalize(),new THREE.Vector3(),L,0x888888,0.14,0.07);gB.add(a);return a;});
+// axes hint
+const gHS=new THREE.Group();scene.add(gHS);
+const hsDot=new THREE.MeshBasicMaterial();
+for(const k in HS){const s=new THREE.Mesh(new THREE.SphereGeometry(0.03,16,12),hsDot);s.position.copy(V(HS[k]));gHS.add(s);}
+// Γ-X-W-K-Γ-L-U-W-L-K path for reference
+const path=['Γ','X','W','K','Γ','L','U','W','L','K'];
+const pg=new THREE.BufferGeometry().setFromPoints(path.map(k=>V(HS[k])));
+const pathMat=new THREE.LineDashedMaterial({dashSize:.05,gapSize:.035,transparent:true,opacity:.8});
+const pathLine=new THREE.Line(pg,pathMat);pathLine.computeLineDistances();gHS.add(pathLine);
+
+// labels
+const labelBox=document.getElementById('labels');
+const labels=[];
+function addLabel(text,pos,cls,group){const d=document.createElement('div');d.className='lbl'+(cls?' '+cls:'');d.innerHTML=text;labelBox.appendChild(d);labels.push({d,pos,group});}
+for(const k in HS)addLabel(k,V(HS[k]),'',gHS);
+Bvec.forEach((b,i)=>addLabel('b<sub>'+(i+1)+'</sub>',V(b).multiplyScalar(1.08),'b',gB));
+
+// k points
+const sphG=new THREE.SphereGeometry(1,14,10);
+const matK=new THREE.MeshStandardMaterial({roughness:.5}),matKI=new THREE.MeshStandardMaterial({roughness:.4});
+let meshK=null,meshKI=null;
+const cellMat=new THREE.LineBasicMaterial({transparent:true,opacity:.6});
+const cellLines=(()=>{const C=[];for(const a of[-.5,.5])for(const b of[-.5,.5])for(const c of[-.5,.5])C.push([a,b,c]);
+  const e=[];for(let i=0;i<8;i++)for(let j=i+1;j<8;j++){const d=C[i].reduce((s,x,t)=>s+(x!==C[j][t]),0);if(d===1)e.push(...fr2k(C[i]),...fr2k(C[j]));}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(e,3));return new THREE.LineSegments(g,cellMat);})();
+scene.add(cellLines);
+
+const state={mode:'gamma',N:4,place:'bz',only:false,explode:.35,opac:.28};
+const G0=Gs;
+function wrap(u){let v=u-Math.round(u);if(v>=0.5-1e-9)v-=1;return v;}
+function rebuildK(){
+  if(meshK){scene.remove(meshK);meshK.dispose&&meshK.dispose();meshK=null;} if(meshKI){scene.remove(meshKI);meshKI.dispose&&meshKI.dispose();meshKI=null;}
+  cellLines.visible=state.mode!=='none'&&state.place==='cell';
+  const st=document.getElementById('stats'),tbl=document.getElementById('tbl'),ex=document.getElementById('explain');
+  if(state.mode==='none'){st.innerHTML='';tbl.innerHTML='';ex.textContent='';return;}
+  const N=state.N,F=grid(N,state.mode);
+  const groups=new Map();const all=[];
+  for(const f of F){const k=fr2k(f);const key=canon(k);
+    const kb=fold(k,G0);const disp=state.place==='bz'?kb:fr2k(f.map(wrap));all.push(disp);
+    if(!groups.has(key)){const r=kb.map(Math.abs).sort((a,b)=>b-a);groups.set(key,{rep:r,w:0});}
+    groups.get(key).w++;}
+  const reps=[...groups.values()].sort((a,b)=>a.rep[0]-b.rep[0]||a.rep[1]-b.rep[1]||a.rep[2]-b.rep[2]);
+  const rad=Math.max(0.018,Math.min(0.045,0.2/N)),m=new THREE.Matrix4();
+  if(!state.only){meshK=new THREE.InstancedMesh(sphG,matK,all.length);all.forEach((p,i)=>{m.makeScale(rad,rad,rad).setPosition(p[0],p[1],p[2]);meshK.setMatrixAt(i,m);});scene.add(meshK);}
+  meshKI=new THREE.InstancedMesh(sphG,matKI,reps.length);reps.forEach((r,i)=>{const s=rad*1.55;m.makeScale(s,s,s).setPosition(r.rep[0],r.rep[1],r.rep[2]);meshKI.setMatrixAt(i,m);});scene.add(meshKI);
+  const hasG=[...groups.values()].some(g=>g.rep.every(x=>Math.abs(x)<1e-9));
+  st.innerHTML=`<dt>总 k 点</dt><dd>${F.length}</dd><dt>不可约 k 点</dt><dd>${reps.length}</dd><dt>是否包含 Γ</dt><dd>${hasG?'是':'否'}</dd><dt>第一区体积</dt><dd>${volume(BZ1).toFixed(4)}</dd><dt>第二区体积（${PIECES.length} 片之和）</dt><dd>${PIECES.reduce((s,p)=>s+p.vol,0).toFixed(4)}</dd>`;
+  tbl.innerHTML='<tr><th>#</th><th>k<sub>x</sub></th><th>k<sub>y</sub></th><th>k<sub>z</sub></th><th>权重</th></tr>'+reps.map((g,i)=>`<tr><td>${i+1}</td><td>${g.rep[0].toFixed(4)}</td><td>${g.rep[1].toFixed(4)}</td><td>${g.rep[2].toFixed(4)}</td><td>${g.w}</td></tr>`).join('');
+  if(N===1)ex.textContent=state.mode==='gamma'?'N = 1 的 Γ 中心网格就是只取 Γ 点（Gamma-only）。':'N = 1 时 MP 网格同样只取 Γ 点。';
+  else if(N%2===1)ex.textContent='N 为奇数：Γ 中心与 MP 网格完全相同，都包含 Γ。';
+  else ex.textContent=state.mode==='gamma'?'N 为偶数的 Γ 中心网格包含 Γ 与区边界点（如 X、L），对称约化后点数较少。':'N 为偶数的 MP 网格整体偏移半格、避开 Γ 与高对称点，同样点数下通常更高效；对 fcc 这种偏移仍保持 Oh 对称。';
+  applyColors();
+}
+
+function applyColors(){
+  const c1=css('--bz1'),ca=css('--bz2a'),cb=css('--bz2b'),ci=css('--ibz'),ink=css('--ink'),mut=css('--muted'),kp=css('--kpt'),ki=css('--kirr');
+  const set=(g,c,op)=>{g.userData.mat.color.set(c);g.userData.lmat.color.set(c);g.userData.mat.opacity=op;};
+  set(g1,c1,state.opac);pieceObjs.forEach(o=>set(o,o.userData.shell==='a'?ca:cb,state.opac*.85));set(gI,ci,Math.min(.85,state.opac+.3));
+  arrows.forEach(a=>a.setColor(new THREE.Color(mut)));hsDot.color.set(ink);pathMat.color.set(mut);
+  matK.color.set(kp);matKI.color.set(ki);cellMat.color.set(mut);
+}
+function applyGeom(){
+  pieceObjs.forEach(o=>o.position.copy(o.userData.dir).multiplyScalar(state.explode*0.9));
+  g1.visible=document.getElementById('c1').checked;g2.visible=document.getElementById('c2').checked;
+  gI.visible=document.getElementById('cibz').checked;gHS.visible=document.getElementById('chs').checked;gB.visible=document.getElementById('cb').checked;
+}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+['c1','c2','cibz','chs','cb'].forEach(id=>$(id).addEventListener('change',applyGeom));
+$('explode').addEventListener('input',e=>{state.explode=+e.target.value;applyGeom();});
+$('opac').addEventListener('input',e=>{state.opac=+e.target.value;applyColors();});
+$('N').addEventListener('input',e=>{state.N=+e.target.value;$('Nv').textContent=state.N;rebuildK();});
+$('conly').addEventListener('change',e=>{state.only=e.target.checked;rebuildK();});
+function seg(id,key){const el=$(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));state[key]=b.dataset.v;rebuildK();});}
+seg('mode','mode');seg('place','place');
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyColors);
+new MutationObserver(applyColors).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+// ---------- loop ----------
+const stage=canvas.parentElement;
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(stage);resize();
+const tmp=new THREE.Vector3();
+function tick(){controls.update();renderer.render(scene,camera);
+  const w=stage.clientWidth,h=stage.clientHeight;
+  for(const L of labels){if(!L.group.visible){L.d.style.display='none';continue;}
+    tmp.copy(L.pos).project(camera);L.d.style.display=tmp.z<1?'block':'none';
+    L.d.style.left=((tmp.x+1)/2*w)+'px';L.d.style.top=((1-tmp.y)/2*h)+'px';}
+  requestAnimationFrame(tick);}
+applyGeom();rebuildK();tick();
+</script>
+</body>
 </html>
