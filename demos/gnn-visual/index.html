@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>图神经网络可视化入门 · GCN / GraphSAGE / GAT / GIN</title>
+<meta name="description" content="面向初学者的图神经网络交互式可视化：消息传递、GCN、GraphSAGE、GAT、GIN 的原理与超参数含义。">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cline x1=%278%27 y1=%2716%27 x2=%2724%27 y2=%278%27 stroke=%27%237d6fe0%27 stroke-width=%273%27/%3E%3Cline x1=%278%27 y1=%2716%27 x2=%2724%27 y2=%2724%27 stroke=%27%237d6fe0%27 stroke-width=%273%27/%3E%3Ccircle cx=%278%27 cy=%2716%27 r=%275%27 fill=%27%232a78d6%27/%3E%3Ccircle cx=%2724%27 cy=%278%27 r=%275%27 fill=%27%23eb6834%27/%3E%3Ccircle cx=%2724%27 cy=%2724%27 r=%275%27 fill=%27%231baf7a%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">图神经网络可视化</div>
+    <div class="brand-sub">GNN 入门 · 原理与超参数</div>
+    <nav class="nav">
+      <div class="group-title">基础</div>
+      <a href="#intro"><span class="no">0</span>导读</a>
+      <a href="#basics"><span class="no">1</span>图与消息传递</a>
+      <div class="group-title">四种经典模型</div>
+      <a href="#gcn"><span class="no">2</span>GCN 图卷积网络</a>
+      <a href="#sage"><span class="no">3</span>GraphSAGE</a>
+      <a href="#gat"><span class="no">4</span>GAT 图注意力网络</a>
+      <a href="#gin"><span class="no">5</span>GIN 图同构网络</a>
+      <div class="group-title">训练与调参</div>
+      <a href="#depth"><span class="no">6</span>层数与过平滑</a>
+      <a href="#train"><span class="no">7</span>训练超参数实验室</a>
+      <a href="#summary"><span class="no">8</span>速查与选型</a>
+    </nav>
+    <button class="theme-btn" id="themeBtn" type="button">☾ 切换到深色</button>
+  </aside>
+
+  <main>
+    <!-- ======================= 0. 导读 ======================= -->
+    <section class="section" id="intro">
+      <h1>图神经网络（GNN）是在做什么？</h1>
+      <p class="lead">一句话：<b>每个节点反复地"听取邻居的意见"来更新自己</b>。堆叠几层以后，节点的表示就同时包含了自身特征和周围的结构信息。</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <h3 style="margin-top:0">数据长什么样</h3>
+          <p>很多数据天然是<b>图</b>：社交网络（人 - 关注关系）、分子（原子 - 化学键）、论文引用网络、推荐系统中的用户 - 商品。</p>
+          <p class="muted small">图 = 节点 + 边；每个节点通常带一个特征向量。</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">常见任务</h3>
+          <ul class="bullet" style="padding-left:18px;margin:0">
+            <li><b>节点分类</b>：判断每篇论文属于哪个领域</li>
+            <li><b>链接预测</b>：两个用户会不会成为好友</li>
+            <li><b>图分类</b>：一个分子有没有毒性</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">为什么不用普通神经网络</h3>
+          <p>普通 MLP 只看节点自己的特征，看不见"谁和谁相连"。CNN 要求规则网格，而图中每个节点的邻居数量不同、也没有固定顺序。</p>
+        </div>
+      </div>
+
+      <h2>所有模型共享同一个框架：消息传递</h2>
+      <div class="flow">
+        <div class="box">① 收集<br><span class="muted small">每个邻居发来一条"消息"</span></div>
+        <span class="arrow">→</span>
+        <div class="box">② 聚合<br><span class="muted small">把多条消息合成一条（求和 / 平均 / 最大 / 加权）</span></div>
+        <span class="arrow">→</span>
+        <div class="box">③ 更新<br><span class="muted small">结合自身旧表示，得到新表示</span></div>
+      </div>
+      <div class="formula">
+        <div class="tex tex-block" data-tex="\mathbf{h}_i^{(l+1)} = \text{UPDATE}\Big(\mathbf{h}_i^{(l)},\ \underset{j \in \mathcal{N}(i)}{\text{AGG}}\ \text{MESSAGE}\big(\mathbf{h}_i^{(l)}, \mathbf{h}_j^{(l)}\big)\Big)"></div>
+      </div>
+      <p>各种 GNN 的差别，基本上就是<b>"给邻居分配多大权重"</b>以及<b>"用什么函数聚合"</b>这两点：</p>
+      <div class="table-scroll">
+        <table class="table-plain">
+          <tr><th>模型</th><th>邻居权重怎么来</th><th>聚合方式</th><th>一句话特点</th></tr>
+          <tr><td><b>GCN</b></td><td>由节点度数<b>固定</b>算出</td><td>归一化加权求和（近似平均）</td><td>最经典、最简单的基线</td></tr>
+          <tr><td><b>GraphSAGE</b></td><td>平均分配（可采样部分邻居）</td><td>mean / max / sum 可选；自身单独处理</td><td>适合大图、能处理新节点</td></tr>
+          <tr><td><b>GAT</b></td><td>用注意力机制<b>学</b>出来</td><td>注意力加权求和，可多头</td><td>不同邻居重要性不同</td></tr>
+          <tr><td><b>GIN</b></td><td>全部为 1（自身为 1+ε）</td><td>求和，再过 MLP</td><td>区分图结构的能力最强</td></tr>
+        </table>
+      </div>
+
+      <h2>本页怎么用</h2>
+      <ul class="bullet">
+        <li>每个模型页面都有一个<b>可点击的小图</b>：点击任意节点，右侧会显示这个节点在这一层的<b>真实计算过程</b>（每个邻居的权重、贡献、最终结果）。</li>
+        <li>控制栏里的开关和滑块对应 <b>PyTorch Geometric（PyG）</b>中真实存在的超参数，名字与官方 API 保持一致（例如 <code>GCNConv</code> 的 <code>add_self_loops</code>），方便你以后读代码时一一对应。</li>
+        <li>每页底部的<b>超参数卡片</b>说明：它是什么、调大/调小会怎样、常用取值。</li>
+        <li>为了让数字能画在二维平面上，演示中节点特征都是 <b>2 维</b>，线性变换 <span class="tex" data-tex="\mathbf{W}"></span> 取<b>单位矩阵</b>（真实模型中 W 是训练学出来的，它只会对结果做一个线性变换，不影响"邻居怎么加权"这一核心逻辑）。</li>
+        <li>第 7 节会在浏览器里<b>真的训练</b>一个 GCN，你可以直接感受学习率、dropout 等训练超参数的作用。</li>
+      </ul>
+
+      <h2>符号速查</h2>
+      <div class="table-scroll">
+        <table class="table-plain">
+          <tr><th>符号</th><th>含义</th><th>符号</th><th>含义</th></tr>
+          <tr><td><span class="tex" data-tex="\mathbf{x}_i"></span></td><td>节点 i 的输入特征</td><td><span class="tex" data-tex="\mathcal{N}(i)"></span></td><td>节点 i 的邻居集合</td></tr>
+          <tr><td><span class="tex" data-tex="\mathbf{h}_i'"></span></td><td>节点 i 经过一层后的新表示</td><td><span class="tex" data-tex="d_i"></span></td><td>节点 i 的度（邻居个数）</td></tr>
+          <tr><td><span class="tex" data-tex="\mathbf{A}"></span></td><td>邻接矩阵，相连为 1</td><td><span class="tex" data-tex="\mathbf{W},\ \mathbf{b}"></span></td><td>可学习的权重矩阵和偏置</td></tr>
+          <tr><td><span class="tex" data-tex="\mathbf{I}"></span></td><td>单位矩阵（给每个节点加自环）</td><td><span class="tex" data-tex="\Vert"></span></td><td>向量拼接</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================= 1. 图与消息传递 ======================= -->
+    <section class="section" id="basics">
+      <h1>图与消息传递</h1>
+      <p class="lead">先看清楚"图"在计算机里是怎么表示的，再看一层 GNN 里信息是怎么流动的。</p>
+
+      <h2>1.1 图的三种表示</h2>
+      <p>下面是一张 8 个节点的小图，本页后面所有模型都用它演示。节点颜色表示它所属的社区（蓝 = 社区 A，橙 = 社区 B），节点下方的数字是它的 2 维特征 <span class="tex" data-tex="\mathbf{x}_i"></span>。</p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="panel-title"><b>图结构</b><span>鼠标悬停节点查看信息</span></div>
+          <div id="basics-graph"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>邻接矩阵</b><span id="adj-caption"></span></div>
+          <div id="adj-controls" style="margin-bottom:6px"></div>
+          <div id="adj-matrix"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="panel-title"><b>节点特征矩阵 X</b><span>形状 [num_nodes, num_features] = [8, 2]</span></div>
+          <div id="feat-table" class="calc"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>edge_index（PyG 的存边方式）</b><span>形状 [2, num_edges]</span></div>
+          <p class="small" style="margin-top:0">PyG 不存整个邻接矩阵（大图里几乎全是 0，太浪费），而是只存"有边的位置"：第一行是<b>源节点</b>，第二行是<b>目标节点</b>。无向图的每条边要存两次（两个方向），所以 10 条边存成 20 列。</p>
+          <div id="edge-index" class="mono small" style="overflow-x:auto;white-space:nowrap"></div>
+        </div>
+      </div>
+
+      <h2>1.2 一层 GNN 里发生了什么</h2>
+      <p>点击任意节点作为<b>目标节点</b>，再按"播放"。这里用最简单的<b>"取平均"</b>作为聚合方式；后面各模型的区别只在于第 ② 步怎么加权。</p>
+      <div class="controls" id="mp-controls"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="steps" id="mp-steps"></div>
+          <div id="mp-graph"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>这一步在算什么</b></div>
+          <div id="mp-detail" class="calc"></div>
+        </div>
+      </div>
+      <div class="callout">
+        <b>三个关键性质</b>
+        <ul class="bullet" style="margin:6px 0 0;padding-left:18px">
+          <li><b>所有节点同时更新</b>：一层里每个节点都在做同样的事，用的都是<b>上一层</b>的旧表示。勾选"所有节点同时"可以看到这一点。</li>
+          <li><b>参数共享</b>：所有节点共用同一组参数 W，所以模型大小与图的大小无关。</li>
+          <li><b>与邻居顺序无关</b>：邻居没有"第一个、第二个"之分，所以聚合函数必须对顺序不敏感（求和、平均、最大值都满足）。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ======================= 2. GCN ======================= -->
+    <section class="section" id="gcn">
+      <h1>GCN 图卷积网络</h1>
+      <p class="lead">Kipf &amp; Welling, 2017 · PyG 中的类名：<code>torch_geometric.nn.GCNConv</code></p>
+      <p><b>核心思想：</b>节点的新表示 = 自己和所有邻居特征的<b>加权平均</b>。权重不是学出来的，而是由两端节点的<b>度数</b>决定：邻居越多的节点，它发出的每条消息越"稀释"。</p>
+      <div class="formula">
+        <div class="tex tex-block" data-tex="\mathbf{h}_i' = \mathbf{b} + \sum_{j \in \mathcal{N}(i) \cup \{i\}} \underbrace{\frac{1}{\sqrt{\hat d_i}\sqrt{\hat d_j}}}_{\text{归一化系数 } c_{ij}} \mathbf{W}\mathbf{x}_j \qquad\qquad \mathbf{H}' = \hat{\mathbf{D}}^{-1/2}\hat{\mathbf{A}}\hat{\mathbf{D}}^{-1/2}\mathbf{X}\mathbf{W} + \mathbf{b}"></div>
+        <div class="legend-row">
+          <span><span class="tex" data-tex="\hat{\mathbf{A}} = \mathbf{A} + \mathbf{I}"></span>：加上自环的邻接矩阵</span>
+          <span><span class="tex" data-tex="\hat d_i"></span>：加自环后的度 = 邻居数 + 1</span>
+          <span>右边是等价的矩阵写法</span>
+        </div>
+      </div>
+      <div class="callout"><b>为什么要除以 <span class="tex" data-tex="\sqrt{\hat d_i \hat d_j}"></span>？</b> 如果直接求和，度数大的节点会收到很多消息，数值越来越大，训练不稳定。除以度数相当于"取平均"；用 <span class="tex" data-tex="\sqrt{\hat d_i}\sqrt{\hat d_j}"></span> 两边各除一半（对称归一化），还能让"人气很高的邻居"（<span class="tex" data-tex="\hat d_j"></span> 大）对每个人的影响变小。</div>
+      <div class="controls" id="gcn-controls"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="panel-title"><b>点击节点查看它的计算</b><span>边的粗细 = 该邻居的权重</span></div>
+          <div id="gcn-graph"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>计算明细</b><span id="gcn-sel"></span></div>
+          <div id="gcn-detail" class="calc"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="panel-title"><b>特征空间：一层之后所有节点移动到了哪里</b></div>
+          <div class="legend"><span><span class="dot" style="border:1.5px solid var(--muted)"></span>空心 = 输入 x</span><span><span class="dot" style="background:var(--muted)"></span>实心 = 输出 h'</span></div>
+          <div id="gcn-scatter"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>观察要点</b></div>
+          <ul class="bullet small" style="padding-left:18px;margin:0">
+            <li>点击节点 <b>7</b>（只有 1 个邻居）和节点 <b>3</b>（3 个邻居）对比：度数越小，自环权重越大，节点越"保留自己"。</li>
+            <li>散点图里，同一社区的点彼此<b>靠拢</b>：这就是 GCN 的"平滑"作用，相邻节点的表示变得更相似，对分类有帮助。</li>
+            <li>节点 3 和 4 是两个社区之间的"桥"，它们被拉向对方社区，所以在两个社区的边界处最容易分错。</li>
+            <li>关闭 <code>normalize</code>：权重全变成 1，变成纯求和。散点图里点的位置明显"跑远"，而且度数越大跑得越远。</li>
+            <li>关闭 <code>add_self_loops</code>：节点完全不看自己，只看邻居，节点 7 的输出直接等于节点 6 的特征（按度数缩放后）。</li>
+          </ul>
+        </div>
+      </div>
+      <h2>GCNConv 超参数</h2>
+      <div id="gcn-params"></div>
+    </section>
+
+    <!-- ======================= 3. GraphSAGE ======================= -->
+    <section class="section" id="sage">
+      <h1>GraphSAGE</h1>
+      <p class="lead">Hamilton et al., 2017 · PyG 中的类名：<code>torch_geometric.nn.SAGEConv</code>（配合 <code>NeighborLoader</code> 做邻居采样）</p>
+      <p><b>核心思想：</b>把"自己"和"邻居"<b>分开处理</b>再相加；邻居的聚合方式可选（mean / max / sum ...）；训练时每个节点只<b>随机采样一部分邻居</b>，这样再大的图也能分批训练。因为学到的是"怎么聚合"的函数而不是每个节点的固定向量，所以训练后出现的<b>新节点</b>也能直接计算（归纳式学习，inductive）。</p>
+      <div class="formula">
+        <div class="tex tex-block" data-tex="\mathbf{h}_i' = \underbrace{\mathbf{W}_1 \mathbf{x}_i}_{\text{自身（root\_weight）}} + \underbrace{\mathbf{W}_2 \cdot \underset{j \in \mathcal{S}(i)}{\text{AGG}}\ \mathbf{x}_j}_{\text{邻居（aggr）}} \qquad \mathbf{h}_i' \leftarrow \frac{\mathbf{h}_i'}{\Vert \mathbf{h}_i' \Vert_2}\ \ (\text{若 normalize=True})"></div>
+        <div class="legend-row">
+          <span><span class="tex" data-tex="\mathcal{S}(i) \subseteq \mathcal{N}(i)"></span>：采样得到的邻居子集</span>
+          <span>AGG：mean / max / sum 等</span>
+          <span>演示中 <span class="tex" data-tex="\mathbf{W}_1 = \mathbf{W}_2 = \mathbf{I}"></span></span>
+        </div>
+      </div>
+      <div class="callout"><b>和 GCN 的关键区别：</b>GCN 把自己当成"一个普通邻居"混在一起平均；GraphSAGE 让自己走一条<b>单独的通道</b>（W₁），邻居走另一条（W₂）。这样模型可以分别学习"自己有多重要"和"邻居有多重要"。</div>
+      <div class="controls" id="sage-controls"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="panel-title"><b>点击节点查看它的计算</b><span>虚线 = 本轮没有被采样的邻居</span></div>
+          <div id="sage-graph"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>计算明细</b><span id="sage-sel"></span></div>
+          <div id="sage-detail" class="calc"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="panel-title"><b>特征空间</b><span id="sage-scatter-note"></span></div>
+          <div class="legend"><span><span class="dot" style="border:1.5px solid var(--muted)"></span>空心 = 输入 x</span><span><span class="dot" style="background:var(--muted)"></span>实心 = 输出 h'</span></div>
+          <div id="sage-scatter"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>观察要点</b></div>
+          <ul class="bullet small" style="padding-left:18px;margin:0">
+            <li>切换 <code>aggr</code>：<b>mean</b> 结果最平稳；<b>max</b> 在每一维上分别取最大值（表格中高亮的是"赢家"）；<b>sum</b> 会随邻居数量变大。</li>
+            <li>把采样数设为 1，然后反复点"重新采样"：同一个节点每次的输出都不一样，这就是采样带来的<b>随机性（方差）</b>。采样越多越接近真实结果，但计算量越大。</li>
+            <li>打开 <code>normalize</code>：所有输出都被拉到半径为 1 的圆上（虚线圆），只保留<b>方向</b>、丢掉长度。</li>
+            <li>关闭 <code>root_weight</code>：节点完全不看自己的特征，只由邻居决定。</li>
+          </ul>
+        </div>
+      </div>
+      <h2>SAGEConv / NeighborLoader 超参数</h2>
+      <div id="sage-params"></div>
+    </section>
+
+    <!-- ======================= 4. GAT ======================= -->
+    <section class="section" id="gat">
+      <h1>GAT 图注意力网络</h1>
+      <p class="lead">Veličković et al., 2018 · PyG 中的类名：<code>torch_geometric.nn.GATConv</code></p>
+      <p><b>核心思想：</b>GCN 中邻居的权重由度数固定死了，GAT 让模型<b>根据两个节点的特征自己决定</b>"这个邻居值得听多少"，这个权重就是<b>注意力系数</b> <span class="tex" data-tex="\alpha_{ij}"></span>。同一个邻居对不同节点的重要性可以不同。</p>
+      <div class="formula">
+        <div class="tex tex-block" data-tex="\underbrace{e_{ij} = \text{LeakyReLU}\big(\mathbf{a}_{\text{dst}}^\top \mathbf{W}\mathbf{x}_i + \mathbf{a}_{\text{src}}^\top \mathbf{W}\mathbf{x}_j\big)}_{\text{(1) 打分}} \quad \underbrace{\alpha_{ij} = \frac{\exp(e_{ij})}{\sum_{k \in \mathcal{N}(i)\cup\{i\}} \exp(e_{ik})}}_{\text{(2) softmax 归一化}} \quad \underbrace{\mathbf{h}_i' = \sum_{j \in \mathcal{N}(i)\cup\{i\}} \alpha_{ij} \mathbf{W}\mathbf{x}_j}_{\text{(3) 加权求和}}"></div>
+        <div class="legend-row">
+          <span><span class="tex" data-tex="\mathbf{a}"></span>：可学习的注意力向量（原论文写成 <span class="tex" data-tex="\mathbf{a}^\top[\mathbf{W}\mathbf{x}_i \Vert \mathbf{W}\mathbf{x}_j]"></span>，与左式等价）</span>
+          <span>softmax 保证每个节点收到的权重之和 = 1</span>
+        </div>
+      </div>
+      <div class="formula">
+        <div class="tex tex-block" data-tex="\text{多头：}\quad \mathbf{h}_i' = \Big\Vert_{k=1}^{K} \mathbf{h}_i'^{(k)} \ \ (\text{concat=True}) \qquad \text{或} \qquad \mathbf{h}_i' = \frac{1}{K}\sum_{k=1}^{K} \mathbf{h}_i'^{(k)} \ \ (\text{concat=False})"></div>
+        <div class="legend-row"><span>每个头有自己独立的 <span class="tex" data-tex="\mathbf{W}^{(k)}, \mathbf{a}^{(k)}"></span>，能关注不同类型的邻居</span></div>
+      </div>
+      <div class="controls" id="gat-controls"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="panel-title"><b>点击节点查看注意力</b><span>边越粗 = 注意力越大</span></div>
+          <div id="gat-graph"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>计算明细</b><span id="gat-sel"></span></div>
+          <div id="gat-detail" class="calc"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="panel-title"><b>特征空间</b><span id="gat-scatter-note"></span></div>
+          <div class="legend"><span><span class="dot" style="border:1.5px solid var(--muted)"></span>空心 = 输入 x</span><span><span class="dot" style="background:var(--muted)"></span>实心 = 输出 h'</span></div>
+          <div id="gat-scatter"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>观察要点</b></div>
+          <ul class="bullet small" style="padding-left:18px;margin:0">
+            <li>演示中预设了 4 个头的注意力参数：<b>头 1</b> 偏好"维度 0 大"的邻居（蓝色社区），<b>头 2</b> 偏好"维度 1 大"的邻居（橙色社区）。选中桥节点 <b>3</b> 或 <b>4</b>，切换头 1 / 头 2，看注意力如何转向。</li>
+            <li><b>头 3</b> 的打分大多是负数：把 <code>negative_slope</code> 从 1 调到 0，负分被压扁，注意力变得越来越<b>平均</b>。</li>
+            <li>打开"训练模式"并调大 <code>dropout</code>：部分注意力被随机置 0（虚线），剩下的按 1/(1-p) 放大。每次"重新采样"结果都不同，相当于训练时随机"屏蔽"部分邻居，防止过拟合。</li>
+            <li>看输出维度：<code>concat=True</code> 时维度 = <code>heads × out_channels</code>，所以下一层的 <code>in_channels</code> 要相应设置。</li>
+          </ul>
+        </div>
+      </div>
+      <h2>GATConv 超参数</h2>
+      <div id="gat-params"></div>
+    </section>
+
+    <!-- ======================= 5. GIN ======================= -->
+    <section class="section" id="gin">
+      <h1>GIN 图同构网络</h1>
+      <p class="lead">Xu et al., 2019 · PyG 中的类名：<code>torch_geometric.nn.GINConv</code></p>
+      <p><b>核心思想：</b>mean 和 max 聚合会<b>丢失信息</b>，例如"1 个蓝邻居"和"2 个蓝邻居"取平均后完全一样。GIN 用<b>求和</b>保留邻居的数量信息，再用一个<b>MLP</b>（多层感知机）做足够灵活的变换。理论上它区分不同图结构的能力与 Weisfeiler-Lehman（WL）图同构测试一样强，是消息传递类 GNN 能达到的上限。因此它特别适合<b>图分类</b>（如分子性质预测）。</p>
+      <div class="formula">
+        <div class="tex tex-block" data-tex="\mathbf{h}_i' = \text{MLP}\Big( (1+\epsilon)\cdot \mathbf{x}_i + \sum_{j \in \mathcal{N}(i)} \mathbf{x}_j \Big)"></div>
+        <div class="legend-row">
+          <span><span class="tex" data-tex="\epsilon"></span>：自身特征的额外权重（eps）</span>
+          <span>MLP：由参数 <code>nn</code> 传入</span>
+          <span>演示中 MLP 视为恒等映射，只看括号里的聚合结果</span>
+        </div>
+      </div>
+
+      <h2>5.1 为什么是"求和"：一个区分能力实验</h2>
+      <p>中心节点（灰色）有不同的邻居组合。蓝色邻居特征为 <span class="tex" data-tex="[1,0]"></span>，橙色邻居为 <span class="tex" data-tex="[0,1]"></span>。如果两张图的聚合结果相同，GNN 就<b>无法区分</b>它们。</p>
+      <div id="gin-power"></div>
+
+      <h2>5.2 在示例图上计算一层 GIN</h2>
+      <div class="controls" id="gin-controls"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="panel-title"><b>点击节点查看它的计算</b><span>所有邻居权重都是 1</span></div>
+          <div id="gin-graph"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>计算明细</b><span id="gin-sel"></span></div>
+          <div id="gin-detail" class="calc"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="panel-title"><b>特征空间（MLP 之前）</b></div>
+          <div class="legend"><span><span class="dot" style="border:1.5px solid var(--muted)"></span>空心 = 输入 x</span><span><span class="dot" style="background:var(--muted)"></span>实心 = 聚合结果</span></div>
+          <div id="gin-scatter"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>观察要点</b></div>
+          <ul class="bullet small" style="padding-left:18px;margin:0">
+            <li>和 GCN 对比：GIN 的输出<b>长度与度数相关</b>（邻居越多，和越大），这正是它能"数出邻居个数"的原因。</li>
+            <li>拖动 <code>eps</code>：ε 越大，节点越看重自己；ε = -1 时完全忽略自身。</li>
+            <li>实际使用时，因为求和会让数值变大，MLP 里通常会加 <b>BatchNorm</b> 来稳定训练。</li>
+            <li>做图分类时，最后要用一个<b>读出函数</b>（Readout，如 <code>global_add_pool</code>）把所有节点的表示汇总成整张图的表示。</li>
+          </ul>
+        </div>
+      </div>
+      <h2>GINConv 超参数</h2>
+      <div id="gin-params"></div>
+    </section>
+
+    <!-- ======================= 6. 层数与过平滑 ======================= -->
+    <section class="section" id="depth">
+      <h1>层数、感受野与过平滑</h1>
+      <p class="lead"><code>num_layers</code> 是 GNN 最重要的结构超参数之一。它决定每个节点"能看多远"，但并不是越深越好。</p>
+
+      <h2>6.1 感受野：K 层 = 看到 K 跳以内的邻居</h2>
+      <p>第 1 层之后，节点只包含直接邻居的信息；第 2 层时，邻居本身已经包含了邻居的邻居的信息……点击节点并拖动层数。</p>
+      <div class="controls" id="rf-controls"></div>
+      <div class="grid-2">
+        <div class="card"><div id="rf-graph"></div></div>
+        <div class="card">
+          <div class="panel-title"><b>感受野</b></div>
+          <div id="rf-detail" class="calc"></div>
+        </div>
+      </div>
+
+      <h2>6.2 过平滑：层数太多，所有节点都变得一样</h2>
+      <p>下面是一张 45 个节点、3 个社区的图，每个节点有 2 维带噪声的特征。我们反复执行 GCN 的传播操作 <span class="tex" data-tex="\mathbf{H} \leftarrow \hat{\mathbf{D}}^{-1/2}\hat{\mathbf{A}}\hat{\mathbf{D}}^{-1/2}\mathbf{H}"></span>（W 取单位矩阵、不加激活，只看"平滑"本身），观察节点特征如何变化。</p>
+      <div class="controls" id="os-controls"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="panel-title"><b>节点特征分布</b><span id="os-k"></span></div>
+          <div class="legend"><span><span class="dot" style="background:var(--c1)"></span>社区 A</span><span><span class="dot" style="background:var(--c2)"></span>社区 B</span><span><span class="dot" style="background:var(--c3)"></span>社区 C</span></div>
+          <div id="os-scatter"></div>
+        </div>
+        <div class="card">
+          <div class="panel-title"><b>可区分程度 = 类间平均距离 / 类内平均距离</b></div>
+          <div id="os-chart"></div>
+          <p class="small muted">数值越大，不同社区越容易分开；等于 1 时，同社区和不同社区的节点一样远，已经无法区分。</p>
+        </div>
+      </div>
+      <div class="callout">
+        <b>结论：</b>前 1~3 层，同社区的节点互相靠拢、噪声被抹平，可区分度<b>上升</b>，这正是 GNN 有效的原因；继续加深，所有节点都被"搅拌"到一起，可区分度<b>下降</b>，这就是<b>过平滑（over-smoothing）</b>。所以大多数 GNN 只用 <b>2~3 层</b>。
+        如果确实需要更深的网络，常用的缓解办法有：残差连接、<code>JumpingKnowledge</code>（拼接各层输出）、<code>DropEdge</code>、<code>PairNorm</code> 等。
+      </div>
+    </section>
+
+    <!-- ======================= 7. 训练实验室 ======================= -->
+    <section class="section" id="train">
+      <h1>训练超参数实验室</h1>
+      <p class="lead">在浏览器里真实训练一个 GCN（前向传播、反向传播、Adam 优化器都是真实计算）。调节超参数，观察训练曲线和预测结果的变化。</p>
+      <div class="callout">
+        <b>任务设定</b>（模拟 Cora 这类半监督节点分类）：45 个节点、3 个社区，每个节点有 8 维<b>噪声很大</b>的特征。只有 <b>9 个节点有标签</b>（每类 3 个，粗黑框），模型要预测其余 36 个节点的类别。只看特征很难分对，利用"相连的节点往往同类"这一图结构才能做好。
+      </div>
+      <div class="controls" id="train-presets"></div>
+      <div class="controls" id="train-controls"></div>
+      <div class="stat-row" id="train-stats"></div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="panel-title"><b>预测结果</b><span>填充色 = 预测类别；✕ = 预测错误</span></div>
+          <div class="legend"><span><span class="dot" style="background:var(--c1)"></span>类别 A</span><span><span class="dot" style="background:var(--c2)"></span>类别 B</span><span><span class="dot" style="background:var(--c3)"></span>类别 C</span><span>节点内字母 = 真实类别</span></div>
+          <div id="train-graph"></div>
+        </div>
+        <div class="card stack">
+          <div>
+            <div class="panel-title"><b>损失（Loss）</b><span>越低越好</span></div>
+            <div id="train-loss"></div>
+          </div>
+          <div>
+            <div class="panel-title"><b>准确率（Accuracy）</b><span>越高越好</span></div>
+            <div id="train-acc"></div>
+          </div>
+        </div>
+      </div>
+      <div class="callout" id="train-tip"></div>
+      <h2>训练超参数说明</h2>
+      <div id="train-params"></div>
+    </section>
+
+    <!-- ======================= 8. 速查 ======================= -->
+    <section class="section" id="summary">
+      <h1>速查与选型</h1>
+      <p class="lead">把前面的内容浓缩成两张表，方便随时查阅。</p>
+      <h2>四种模型对比</h2>
+      <div class="table-scroll">
+        <table class="table-plain">
+          <tr><th>模型</th><th>PyG 类</th><th>邻居权重</th><th>优点</th><th>局限</th><th>适合场景</th></tr>
+          <tr><td><b>GCN</b></td><td><code>GCNConv</code></td><td>由度数决定，固定</td><td>简单、快、参数少，是很强的基线</td><td>所有邻居同等看待（仅按度数）；原始形式需要全图</td><td>中小规模的节点分类（Cora、PubMed）</td></tr>
+          <tr><td><b>GraphSAGE</b></td><td><code>SAGEConv</code></td><td>平均（mean）或 max / sum</td><td>支持邻居采样和小批量训练；能处理新节点</td><td>采样带来随机性；mean/max 会丢失邻居数量信息</td><td>大规模图、动态图、推荐系统</td></tr>
+          <tr><td><b>GAT</b></td><td><code>GATConv</code>、<code>GATv2Conv</code></td><td>注意力，可学习</td><td>能区分重要和不重要的邻居；注意力可解释</td><td>计算与显存开销更大；原始 GAT 的注意力排序较"静态"（GATv2 已改进）</td><td>邻居重要性差异大的图、异质性较强的数据</td></tr>
+          <tr><td><b>GIN</b></td><td><code>GINConv</code>、<code>GINEConv</code></td><td>全部为 1（自身 1+ε）</td><td>表达能力理论最强，区分结构能力好</td><td>数值随度数增长，需要 BatchNorm；节点分类上不一定优于 GCN</td><td>图分类、分子性质预测</td></tr>
+        </table>
+      </div>
+
+      <h2>超参数一览与起步值</h2>
+      <div class="table-scroll">
+        <table class="table-plain">
+          <tr><th>超参数</th><th>作用</th><th>推荐起步值</th><th>出问题时的信号</th></tr>
+          <tr><td><code>num_layers</code></td><td>感受野（看几跳邻居）</td><td>2（节点分类）；3~5（图分类，配合残差/BatchNorm）</td><td>太深：训练、测试准确率都下降（过平滑）</td></tr>
+          <tr><td><code>hidden_channels</code></td><td>隐藏表示的维度 / 模型容量</td><td>16~64（小图）；128~256（大图）</td><td>太小：训练准确率也上不去；太大：训练很好、测试差</td></tr>
+          <tr><td><code>dropout</code></td><td>随机丢弃神经元，防止过拟合</td><td>0.5（GCN）；0.6（GAT）</td><td>过大：欠拟合、曲线抖动；过小：过拟合</td></tr>
+          <tr><td><code>lr</code></td><td>每步更新的步长</td><td>0.01（GCN）；0.005（GAT）；0.001（大模型）</td><td>过大：loss 震荡或爆炸；过小：loss 下降很慢</td></tr>
+          <tr><td><code>weight_decay</code></td><td>L2 正则，限制权重大小</td><td>5e-4</td><td>过大：欠拟合；为 0：容易过拟合</td></tr>
+          <tr><td><code>epochs</code></td><td>训练轮数</td><td>200（小图），配合早停</td><td>验证集 loss 开始上升 → 该停了</td></tr>
+          <tr><td><code>heads</code>（GAT）</td><td>注意力头数</td><td>隐藏层 8；输出层 1</td><td>头多显存线性增长</td></tr>
+          <tr><td><code>aggr</code>（SAGE）</td><td>邻居聚合方式</td><td>mean</td><td>需要数邻居数量时改 sum</td></tr>
+          <tr><td><code>num_neighbors</code>（采样）</td><td>每跳采样邻居数</td><td>[25, 10] 或 [15, 10]</td><td>太少：结果方差大；太多：显存不够</td></tr>
+          <tr><td><code>eps</code> / <code>train_eps</code>（GIN）</td><td>自身特征的额外权重</td><td>0 / False</td><td>一般影响不大</td></tr>
+        </table>
+      </div>
+
+      <h2>推荐的调参顺序</h2>
+      <ol class="bullet">
+        <li><b>先跑通默认值</b>：2 层、hidden 16~64、dropout 0.5、lr 0.01、weight_decay 5e-4、Adam。</li>
+        <li><b>调学习率</b>：观察 loss 曲线，是否平稳下降。它通常是最影响结果的一个。</li>
+        <li><b>看是否过拟合</b>：训练准确率远高于验证准确率时，加大 dropout / weight_decay，或减小 hidden_channels。</li>
+        <li><b>再调结构</b>：层数（2~3）、模型种类（GCN → GAT / SAGE）、聚合方式、注意力头数。</li>
+        <li><b>始终用验证集做早停和选模型</b>，测试集只在最后评估一次。</li>
+      </ol>
+      <p class="muted small">说明：本页所有超参数名称与 PyTorch Geometric 官方 API 一致；不同版本的默认值可能略有差异，以你所用版本的官方文档为准。</p>
+    </section>
+  </main>
+</div>
+
+<script src="js/core.js"></script>
+<script src="js/basics.js"></script>
+<script src="js/models.js"></script>
+<script src="js/depth.js"></script>
+<script src="js/train.js"></script>
+</body>
+</html>

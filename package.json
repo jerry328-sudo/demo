@@ -2,8 +2,11 @@
   "name": "demo",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "check": "node --check js/main.js",
+    "check": "node --check js/main.js && node --check demos/brillouin_sampling.js && node --check demos/brillouin_sampling_math.js && node --check demos/cnn-conv1d.js && node --check demos/cnn-conv1d-math.js",
+    "check:brillouin": "node --test demos/brillouin_sampling.test.js",
+    "check:cnn": "node --test demos/cnn-conv1d.test.js",
     "build": "echo \"Static site build step not required\""
   }
 }
