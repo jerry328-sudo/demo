@@ -3,99 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="在固定权重的归纳式 GCN 中，比较测试时接入新节点或加入独立图对已有节点预测的影响。">
-  <title>图变了，预测会变吗？ · GCN 归纳式推理</title>
-  <link rel="stylesheet" href="./style.css?v=2">
-  <script type="module" src="./app.js?v=2"></script>
+  <meta name="description" content="比较测试图新增第一篇论文、第二篇论文和一张相连的引用子图前后的 GCN 节点分类概率。">
+  <title>归纳式 GCN 中测试图扩展对节点预测的影响</title>
+  <link rel="stylesheet" href="./style.css?v=3">
+  <script type="module" src="./app.js?v=3"></script>
 </head>
 <body>
-  <a class="skip-link" href="#experiment">跳转到实验</a>
-  <div class="site-shell">
+  <a class="skip-link" href="#comparison">跳转到图对比</a>
+  <div class="page">
     <header class="topbar">
-      <a class="back-link" href="../../index.html" aria-label="返回 Patrick 的笔记本首页"><span aria-hidden="true">←</span> Patrick / Notes</a>
-      <span class="topbar-title">Graph lab <span class="topbar-divider">/</span> Inductive GCN</span>
+      <a href="../../index.html">← 返回项目目录</a>
+      <span>GCN 归纳式推理演示</span>
     </header>
-
     <main>
-      <section class="intro" aria-labelledby="page-title">
-        <div>
-          <h1 id="page-title">图变了，<br><em>预测会变吗？</em></h1>
+      <header class="page-heading">
+        <h1>归纳式 GCN 中测试图扩展对节点预测的影响</h1>
+        <p><strong>任务：</strong>根据论文的关键词特征和引用关系，预测论文属于 <strong>AI</strong> 还是<strong>物理</strong>领域。每个节点显示关键词得分 <strong>x</strong> 和预测的 <strong>AI 概率</strong>。x 为正表示 AI 关键词占优，为负表示物理关键词占优。</p>
+        <p class="context">这是合成示例。输入特征为 [x, 1]。模型已在其他引用图上训练，以下每一步只改变测试图，模型权重保持固定。引用关系在 GCN 中按无向边处理。</p>
+      </header>
+
+      <section class="steps" aria-labelledby="steps-title">
+        <h2 id="steps-title">测试图依次增加</h2>
+        <div class="step-options" role="group" aria-label="选择要观察的新增步骤">
+          <button type="button" data-step="1" aria-pressed="true"><span>1</span> 新增论文 K</button>
+          <button type="button" data-step="2" aria-pressed="false"><span>2</span> 再新增论文 L</button>
+          <button type="button" data-step="3" aria-pressed="false"><span>3</span> 接入新引用子图</button>
         </div>
-        <div class="intro-aside">
-          <p>模型在其他图上训练完成。现在固定权重，只改变测试阶段输入的图，观察原有节点的标签概率如何响应。</p>
-          <div class="intro-key"><span class="key-line" aria-hidden="true"></span> 同一组原有节点 · 前后两次推理</div>
-        </div>
+        <p id="step-explanation" class="step-explanation" role="status" aria-live="polite"></p>
       </section>
 
-      <section id="experiment" class="experiment" aria-labelledby="experiment-title">
-        <div class="section-line"><h2 id="experiment-title">交互实验</h2><span>01 / 02</span></div>
-        <div class="experiment-layout">
-          <div class="stage">
-            <div class="stage-head">
-              <div><span class="small-label">测试图</span><h3 id="stage-title">接入一个新节点</h3></div>
-              <div class="legend" aria-label="图例"><span><i class="legend-dot old"></i> 原有节点</span><span><i class="legend-dot new"></i> 新增节点</span></div>
-            </div>
-            <svg id="graph" class="graph" viewBox="0 0 760 440" role="group" aria-labelledby="graph-title graph-desc">
-              <title id="graph-title">测试图节点及新增节点</title>
-              <desc id="graph-desc">点击原有节点查看预测变化；在右侧选择新节点的连接。</desc>
-            </svg>
-            <div class="stage-footer"><span class="stage-caption" id="stage-caption">点击原有节点，查看它的预测变化</span><span class="stage-scale">节点填色代表当前预测类别</span></div>
-          </div>
-
-          <div class="controls">
-            <div class="control-section">
-              <span class="small-label">变化方式</span>
-              <div class="segmented" role="group" aria-label="选择图变化方式">
-                <button type="button" data-mode="node" aria-pressed="true">接入新节点</button>
-                <button type="button" data-mode="graph" aria-pressed="false">加入独立图</button>
-              </div>
-              <p class="control-help" id="mode-help">新节点接到测试图上，改变局部邻接关系和度归一化。</p>
-            </div>
-
-            <div class="control-section">
-              <div class="control-label-row"><label for="depth">GCN 层数</label><strong id="depth-value">2 层</strong></div>
-              <input id="depth" type="range" min="1" max="4" step="1" value="2">
-              <div class="range-marks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span></div>
-              <p class="control-help">每个深度使用在训练图上单独训练并冻结的权重。</p>
-            </div>
-
-            <div class="control-section" id="feature-control">
-              <span class="small-label">新节点的输入特征</span>
-              <div class="feature-options" role="group" aria-label="选择新节点特征">
-                <button type="button" data-feature="negative" aria-pressed="true"><i class="feature-swatch orange"></i> 偏向橙类</button>
-                <button type="button" data-feature="positive" aria-pressed="false"><i class="feature-swatch blue"></i> 偏向蓝类</button>
-              </div>
-            </div>
-
-            <div class="control-section" id="connection-control">
-              <span class="small-label">新节点连接到</span>
-              <div class="connection-options" id="connection-options" role="group" aria-label="选择新节点连接的原有节点"></div>
-            </div>
-
-            <div class="readout" aria-live="polite">
-              <div class="readout-top"><span class="small-label">所选原有节点</span><strong id="selected-name">C</strong></div>
-              <div class="readout-metric"><span>蓝类概率</span><div><strong id="before-value">—</strong><span class="arrow" aria-hidden="true">→</span><strong id="after-value">—</strong></div></div>
-              <div class="readout-track" aria-hidden="true"><span class="before-track" id="before-track"></span><span class="after-track" id="after-track"></span></div>
-              <p class="readout-change" id="selected-delta">正在计算…</p>
-            </div>
-          </div>
+      <section id="comparison" class="comparison" aria-labelledby="comparison-title">
+        <div class="section-heading">
+          <div><h2 id="comparison-title">加入前后</h2><p>两侧相同字母表示同一篇论文，位置保持一致。只高亮当前这一步新增的内容。</p></div>
+          <fieldset class="layer-picker"><legend>GCN 层数</legend><div role="group" aria-label="选择 GCN 层数"><button type="button" data-depth="1" aria-pressed="false">1 层</button><button type="button" data-depth="2" aria-pressed="true">2 层</button><button type="button" data-depth="3" aria-pressed="false">3 层</button><button type="button" data-depth="4" aria-pressed="false">4 层</button></div></fieldset>
         </div>
-        <p class="experiment-note" id="experiment-note" role="status" aria-live="polite"></p>
+        <div class="graph-grid">
+          <article class="graph-panel">
+            <header><h3>加入前</h3><p id="before-description"></p></header>
+            <div class="graph-wrap"><svg id="before-graph" viewBox="0 0 600 425" role="group" aria-label="加入前的论文引用图"></svg></div>
+          </article>
+          <article class="graph-panel">
+            <header><h3>加入后</h3><p id="after-description"></p></header>
+            <div class="graph-wrap"><svg id="after-graph" viewBox="0 0 600 425" role="group" aria-label="加入后的论文引用图"></svg></div>
+          </article>
+        </div>
+        <div class="legend"><span><i class="legend-line"></i> 原有引用关系</span><span><i class="legend-line added"></i> 本步新增的边</span><span><i class="legend-node"></i> 本步新增的论文</span><span><i class="legend-change"></i> AI 概率变化至少 1 个百分点</span></div>
+        <div class="selected-result" id="selected-result" aria-live="polite"></div>
       </section>
 
-      <section class="analysis-section" aria-labelledby="depth-title">
-        <div class="section-line"><h2 id="depth-title">层数会改变什么？</h2><span>02 / 02</span></div>
-        <div class="analysis-intro"><p>保持同一次图变化，分别用 1–4 层模型计算。选择上方节点，比较它在不同深度下的概率变化。</p><span id="comparison-caption">当前观察：节点 C</span></div>
-        <div class="depth-chart" id="depth-chart" role="group" aria-label="不同 GCN 层数下所选节点的预测概率变化"></div>
-        <div class="detail-grid">
-          <div class="detail-block"><span class="detail-number">01</span><h3>接入节点</h3><p>新节点与原图相连，消息会沿连边传播。这里采用对称度归一化，因此连接点的度改变，也会立即改变其邻居收到的旧边消息。</p></div>
-          <div class="detail-block"><span class="detail-number">02</span><h3>加入独立图</h3><p>两张图没有连边。逐图运行固定参数的 GCN 时，原图的邻接矩阵和输入特征完全相同，原有节点的预测也完全相同。</p></div>
-          <div class="detail-block"><span class="detail-number">03</span><h3>读懂层数</h3><p>层数决定消息可传播的范围。变化的大小还取决于特征、图结构、归一化和各深度学到的权重，因此不保证随层数单调增加。</p></div>
-        </div>
-        <div class="method-note"><strong>模型与计算</strong><span>标准 GCN 传播：D̃<sup>−1/2</sup> Ã D̃<sup>−1/2</sup> H<sup>(ℓ)</sup> W<sup>(ℓ)</sup>。隐藏层用 tanh，末层用 sigmoid 得到蓝类概率，Ã = A + I。三个训练图与页面中的测试图互不重叠，训练权重保存在 <code>weights.json</code>。本页只进行推理，概率变化为加入前后之差。</span></div>
+      <section class="results" aria-labelledby="results-title">
+        <div class="section-heading"><div><h2 id="results-title">逐节点输入与预测</h2><p>列出本步加入后图中的全部节点。新增论文在加入前尚不存在，变化栏也不适用。点击论文行可在图中定位。</p></div></div>
+        <div class="table-scroll"><table><thead><tr><th scope="col">论文</th><th scope="col">关键词得分 x</th><th scope="col">加入前 AI 概率</th><th scope="col">加入后 AI 概率</th><th scope="col">变化（百分点）</th></tr></thead><tbody id="node-results"></tbody></table></div>
+      </section>
+
+      <section class="depth-results" aria-labelledby="depth-results-title">
+        <div class="section-heading"><div><h2 id="depth-results-title">GCN 层数与变化范围</h2><p>保持当前新增步骤，分别使用 1–4 层模型。点击一行即可切换上方两张图的层数。</p></div></div>
+        <div class="table-scroll"><table><thead><tr><th scope="col">GCN 层数</th><th scope="col" id="depth-before-head">所选论文：加入前 AI 概率</th><th scope="col" id="depth-after-head">所选论文：加入后 AI 概率</th><th scope="col">该论文变化（百分点）</th><th scope="col">变化 ≥ 1 个百分点的原有论文</th></tr></thead><tbody id="depth-results"></tbody></table></div>
+        <p class="method-note">每个层数的模型分别在相同训练图上训练。层数影响消息可到达的范围；具体概率变化还受各模型学到的权重影响。采用带自环的对称度归一化 GCN，连接点的度改变也会影响其原有邻居在第一层收到的消息。</p>
       </section>
     </main>
-    <footer class="footer"><span>Patrick / Notes</span><a href="../../index.html">返回项目目录 <span aria-hidden="true">↗</span></a></footer>
+    <footer><a href="../../index.html">返回项目目录</a><span>Patrick / Notes</span></footer>
   </div>
 </body>
 </html>

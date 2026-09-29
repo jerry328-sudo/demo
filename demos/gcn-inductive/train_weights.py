@@ -1,4 +1,4 @@
-"""Reproduce the frozen GCN weights used by the browser demo.
+"""Reproduce the frozen GCN weights for synthetic AI/physics paper classification.
 
 Run with: python demos/gcn-inductive/train_weights.py
 Requires NumPy. Training graphs and the test graph are disjoint.
@@ -31,7 +31,7 @@ def adjacency(n, edges):
 def make_graph(signals, edges):
     s = np.array(signals)
     x = np.stack([s, np.ones_like(s)], axis=1)
-    # Soft class targets keep the small teaching example from saturating at 0/1.
+    # Label smoothing keeps the small illustrative dataset from saturating at 0/1.
     y = (0.5 + 0.35 * np.where(s > 0, 1, -1))[:, None]
     return x, y, adjacency(len(s), edges)
 
