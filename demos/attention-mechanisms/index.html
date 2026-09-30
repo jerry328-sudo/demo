@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="用可调数值观察注意力分数、归一化权重和加权输出，以及自注意力、交叉注意力、多头、图与通道空间注意力的计算。">
+  <title>注意力机制 · 算法可视化</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="back-link" href="../../index.html">← 返回项目目录</a>
+    <span class="site-name">Patrick / Notes</span>
+  </header>
+  <main class="page">
+    <header class="page-header">
+      <h1>注意力机制</h1>
+      <p>从输入向量到分数、权重和输出。每个数字都由当前输入计算，改动参数后同步更新。</p>
+    </header>
+
+    <nav class="mode-nav" aria-label="选择注意力机制">
+      <button type="button" data-mode="core" aria-current="true"><span>01</span> 点积与加性</button>
+      <button type="button" data-mode="self"><span>02</span> 自注意力</button>
+      <button type="button" data-mode="cross"><span>03</span> 交叉注意力</button>
+      <button type="button" data-mode="multi"><span>04</span> 多头注意力</button>
+      <button type="button" data-mode="graph"><span>05</span> 图注意力</button>
+      <button type="button" data-mode="gate"><span>06</span> 通道与空间</button>
+    </nav>
+
+    <div class="workbench">
+      <section class="main-panel" aria-labelledby="mode-title">
+        <div class="section-heading">
+          <div>
+            <span class="section-index" id="mode-index">01 / 06</span>
+            <h2 id="mode-title">点积与加性注意力</h2>
+          </div>
+          <p id="mode-summary"></p>
+        </div>
+        <div class="formula" id="formula"></div>
+        <div id="visual" class="visual"></div>
+        <div class="method-note" id="method-note"></div>
+      </section>
+
+      <aside class="control-panel" aria-labelledby="controls-title">
+        <div class="control-heading">
+          <h2 id="controls-title">调整输入</h2>
+          <button type="button" id="reset" class="reset-button">恢复本页示例</button>
+        </div>
+        <div id="controls"></div>
+      </aside>
+    </div>
+
+    <section class="reading-note" aria-labelledby="reading-title">
+      <h2 id="reading-title">读图方式</h2>
+      <div class="reading-grid">
+        <p><strong>分数</strong>衡量当前查询与候选项的匹配程度。分数本身可以是负数。</p>
+        <p><strong>权重</strong>由 softmax 得到；在同一组未屏蔽候选项中总和为 1。</p>
+        <p><strong>输出</strong>是各候选值向量按权重求和。通道/空间门控单独采用 sigmoid，各门控权重不要求相加为 1。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

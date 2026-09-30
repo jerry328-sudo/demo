@@ -30,7 +30,8 @@ demo/
 │   ├── gravity/           # 几何即引力交互课堂
 │   ├── gnn-neuron/        # GNN 神经元交互实验
 │   ├── gnn-visual/        # GNN 模型与超参数可视化入门
-│   └── gcn-inductive/     # 逐步接入节点与子图的 GCN 归纳推理实验
+│   ├── gcn-inductive/     # 逐步接入节点与子图的 GCN 归纳推理实验
+│   └── attention-mechanisms/ # 注意力计算过程可视化
 └── docs/                   # 项目文档
     ├── PROJECT_STRUCTURE.md
     └── REFACTORING_SUMMARY.md
@@ -57,6 +58,7 @@ python3 -m http.server 8000
 - **GNN 神经元实验** - 从图节点、邻居聚合到单个神经元的交互演示
 - **图神经网络可视化入门** - 消息传递、GCN、GraphSAGE、GAT、GIN 与训练超参数实验
 - **归纳式 GCN 测试图扩展** - 固定训练权重，逐步接入两篇论文和一张新引用子图，比较原有论文的预测变化
+- **注意力机制算法可视化** - 调整输入，观察点积、加性、自注意力、交叉注意力、多头、图与通道空间加权的计算
 
 ## 许可证
 
