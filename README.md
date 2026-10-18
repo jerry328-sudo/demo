@@ -26,6 +26,7 @@ demo/
 │   ├── lorentz/           # 洛伦兹演示相关脚本
 │   ├── brillouin_sampling.html  # 布里渊区采样演示
 │   ├── cnn-conv1d.html    # CNN 卷积核可视化
+│   ├── chernobyl-core/    # 切尔诺贝利反应堆模拟器
 │   ├── CartPole.html      # CartPole 强化学习演示
 │   ├── gravity/           # 几何即引力交互课堂
 │   ├── gnn-neuron/        # GNN 神经元交互实验
@@ -52,6 +53,7 @@ python3 -m http.server 8000
 - **星际旅行燃料计算器** - 基于相对论火箭方程的燃料计算工具
 - **洛伦兹时空图** - 基于 Three.js 的闵可夫斯基时空图交互演示
 - **布里渊区采样** - 第一布里渊区可视化工具
+- **[切尔诺贝利反应堆模拟器](demos/chernobyl-core/index.html)** - RBMK 堆芯三维可视化、自由操作与事故时间线，支持中英文；采用定性教学模型，Three.js 与字体通过 CDN 加载
 - **CNN 卷积核可视化** - Conv1d 交互式可视化实验
 - **CartPole 强化学习** - MLP 控制倒立摆演示
 - **几何即引力** - 从度规到爱因斯坦场方程的交互式相对论课堂

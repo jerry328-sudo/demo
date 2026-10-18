@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="切尔诺贝利 RBMK-1000 反应堆堆芯交互演示：自由操作、事故时间线与中英文界面。">
+  <title>Chernobyl Core Simulator</title>
+  <link rel="icon" type="image/webp" href="../../assets/images/cropped-logo1.webp">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="stage" id="stage" aria-label="Reactor core, 3D view">
+      <canvas id="gl" aria-label="反应堆堆芯三维可视化 / Reactor core visualization"></canvas>
+      <p class="load-error" id="load-error" role="alert" hidden></p>
+      <noscript><p class="load-error">请启用 JavaScript 以运行模拟器。 / Enable JavaScript to run the simulator.</p></noscript>
+      <div class="flash" id="flash"></div>
+      <div class="hud hud-tl">
+        <div class="clock" id="clock">ELAPSED 00:00:00</div>
+        <div class="bigpower" id="bigpower">3200<small>MW thermal</small></div>
+        <div class="hud-sub" id="hudsub">RBMK-1000 · 1,749 channels</div>
+      </div>
+      <div class="hud hud-tr">
+        <div class="chip" id="chip" data-s="ok">Normal operation</div>
+        <div class="slowmo" id="slowmo" hidden data-i18n="slowmo">SLOW MOTION ×0.25</div>
+      </div>
+      <div class="hud hud-bl"><div class="legend" id="legend"></div></div>
+      <div class="hud hud-br" data-i18n="hint3d">Drag to orbit · scroll to zoom · hover a channel</div>
+      <div class="tooltip" id="tip" hidden></div>
+    </section>
+
+    <aside class="panel">
+      <header>
+        <a class="home-link" href="../../index.html">← 返回项目目录 / All demos</a>
+        <div class="head-row">
+          <div>
+            <div class="eyebrow">RBMK-1000 · Chernobyl Unit 4</div>
+            <h1 data-i18n="title">Core simulator</h1>
+          </div>
+          <div class="lang" role="group" aria-label="Language / 语言">
+            <button data-lang-btn="en" aria-pressed="true">EN</button><button data-lang-btn="zh" aria-pressed="false">中文</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="seg" role="group" aria-label="Mode">
+        <button id="m-free" aria-pressed="true" data-i18n="modeFree">Free operation</button>
+        <button id="m-scen" aria-pressed="false" data-i18n="modeScen">26 April 1986</button>
+      </div>
+
+      <section class="scen" id="scenbox" hidden>
+        <div class="narr" id="narr" role="status" aria-live="polite" data-i18n="narrIntro">The reactor is at full power, 3200 MW. The turbogenerator rundown test is planned for today.</div>
+        <ol class="steps" id="steps"></ol>
+        <div class="btns">
+          <button class="btn" id="skip" data-i18n="skipNext">Skip to next event</button>
+          <button class="btn" id="takeover" data-i18n="takeover">Take manual control</button>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="h2t" data-i18n="instruments">Instruments</span> <span id="simclock"></span></h2>
+        <div class="tiles">
+          <div class="tile" id="t-pow"><div class="k" data-i18n="kPower">Thermal power</div><div class="v" id="v-pow">3200<small>MW</small></div><div class="bar"><div id="b-pow"></div><span class="mark" style="left:70%"></span></div></div>
+          <div class="tile" id="t-rho"><div class="k" data-i18n="kRho">Reactivity</div><div class="v" id="v-rho">0.00<small>$</small></div><div class="bar"><div id="b-rho"></div><span class="mark" style="left:50%"></span><span class="mark" style="left:75%;background:var(--alarm)"></span></div></div>
+          <div class="tile" id="t-per"><div class="k" data-i18n="kPeriod">Period</div><div class="v" id="v-per">∞</div></div>
+          <div class="tile" id="t-orm"><div class="k" data-i18n="kOrm">Reactivity margin</div><div class="v" id="v-orm">30.0<small>rods</small></div><div class="bar"><div id="b-orm"></div><span class="mark" style="left:37.5%;background:var(--alarm)"></span></div></div>
+          <div class="tile" id="t-void"><div class="k" data-i18n="kVoid">Core void</div><div class="v" id="v-void">57<small>%</small></div></div>
+          <div class="tile" id="t-temp"><div class="k" data-i18n="kTemp">Hottest fuel</div><div class="v" id="v-temp">1162<small>K</small></div></div>
+          <div class="tile" id="t-xe"><div class="k">Xenon-135</div><div class="v" id="v-xe">1.00<small>× eq.</small></div></div>
+          <div class="tile" id="t-flow"><div class="k" data-i18n="kFlow">Coolant flow</div><div class="v" id="v-flow">100<small>%</small></div></div>
+        </div>
+      </section>
+
+      <div class="lamps" aria-label="Annunciators">
+        <div class="lamp" id="L-orm">ORM &lt; 15</div>
+        <div class="lamp" id="L-ar" data-i18n="lampAR">AR limit</div>
+        <div class="lamp" id="L-flow" data-i18n="lampFlow">Low flow</div>
+        <div class="lamp" id="L-scram">AZ-5</div>
+        <div class="lamp" id="L-prompt" data-i18n="lampPrompt">Prompt crit.</div>
+        <div class="lamp" id="L-fuel" data-i18n="lampFuel">Fuel &gt; 2200 K</div>
+        <div class="lamp" id="L-rupt" data-i18n="lampRupt">Rupture</div>
+        <div class="lamp" id="L-dead" data-i18n="lampDead">Core lost</div>
+      </div>
+
+      <section>
+        <h2><span class="h2t" data-i18n="recorder">Power recorder</span> <span data-i18n="recorderSub">log scale, last 30 s of playback</span></h2>
+        <div class="recorder"><canvas id="rec"></canvas></div>
+      </section>
+
+      <div class="az5wrap">
+        <button class="az5" id="az5" aria-label="AZ-5 emergency shutdown">АЗ-5</button>
+        <p><strong data-i18n="az5Title">AZ-5 · Emergency shutdown</strong><span data-i18n="az5Body">Drives every control rod into the core at 0.4 m/s. Rods start from the top with graphite displacers below the absorber, so the first seconds of travel add reactivity at the bottom of the core.</span></p>
+      </div>
+
+      <fieldset id="controls">
+        <h2 data-i18n="operatorControls">Operator controls</h2>
+        <div class="ctl">
+          <div class="row">
+            <label class="switch"><input type="checkbox" id="ar" checked> <span data-i18n="autoRegulator">Automatic regulator</span></label>
+            <output id="o-sp">3200 MW</output>
+            <input type="range" id="sp" min="0" max="1000" value="1000" aria-label="Power setpoint">
+            <div class="hint" data-i18n="hintSP">12 automatic rods hold power at this setpoint within their limited range.</div>
+          </div>
+          <div class="row">
+            <label for="rr" data-i18n="manualRods">Manual control rods</label><output id="o-rr">40% in</output>
+            <input type="range" id="rr" min="0" max="100" value="40">
+            <div class="hint" id="h-rr">185 rods. 0% means fully withdrawn above the core.</div>
+          </div>
+          <div class="row">
+            <label for="usp" data-i18n="shortenedAbsorbers">Shortened absorbers (from below)</label><output id="o-usp">30% in</output>
+            <input type="range" id="usp" min="0" max="100" value="30">
+          </div>
+          <div class="row">
+            <span class="lbl" data-i18n="pumps">Main circulation pumps</span>
+            <span class="stepper"><button id="p-dn" aria-label="Fewer pumps">−</button><output id="o-pumps">6</output><button id="p-up" aria-label="More pumps">+</button></span>
+          </div>
+          <div class="row">
+            <label for="sub" data-i18n="subcooling">Inlet subcooling</label><output id="o-sub">14 °C</output>
+            <input type="range" id="sub" min="0" max="20" step="0.5" value="14">
+            <div class="hint" data-i18n="hintSub">Below saturation at the channel inlet. Near zero, a little extra heat makes a lot of steam.</div>
+          </div>
+          <div class="btns"><button class="btn" id="rundown" data-i18n="rundownTest">Start turbine rundown test</button></div>
+        </div>
+      </fieldset>
+
+      <section>
+        <h2 data-i18n="timeView">Time &amp; view</h2>
+        <div class="ctl">
+          <div class="seg small" role="group" aria-label="Simulation speed" id="warps">
+            <button data-w="0">❚❚</button><button data-w="1" aria-pressed="true">1×</button><button data-w="10">10×</button><button data-w="100">100×</button><button data-w="1000">1k×</button><button data-w="3600">3.6k×</button>
+          </div>
+          <div class="row">
+            <label for="cmode" data-i18n="colourBy">Colour channels by</label>
+            <select id="cmode">
+              <option value="type" data-i18n="optType">Channel type</option>
+              <option value="temp" data-i18n="optTemp">Fuel temperature</option>
+              <option value="void" data-i18n="optVoid">Steam void</option>
+              <option value="xe" data-i18n="optXe">Xenon-135</option>
+            </select>
+          </div>
+          <div class="btns">
+            <label class="switch"><input type="checkbox" id="rot" checked> <span data-i18n="slowOrbit">Slow orbit</span></label>
+            <button class="btn" id="reset" style="margin-left:auto" data-i18n="resetReactor">Reset reactor</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-i18n="eventLog">Event log</h2>
+        <ul class="log" id="log"></ul>
+      </section>
+
+      <section class="note">
+        <h2 data-i18n="aboutModel">About the model</h2>
+        <p data-i18n="aboutP1">Column height follows local thermal power. The physics is point kinetics with one delayed-neutron group (β = 0.5%, prompt generation time 0.8 ms) driven by per-channel steam void, fuel temperature (Doppler) and iodine-135 → xenon-135 poisoning. Steam void adds reactivity, as it did in the RBMK, and the effect is strongest at low power with coolant near boiling.</p>
+        <p data-i18n="aboutP2">Coefficients are tuned so the 1986 sequence plays out qualitatively as described in IAEA INSAG-7. Numbers are illustrative, not a reconstruction of the plant.</p>
+      </section>
+    </aside>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/simulator.js"></script>
+</body>
+</html>
