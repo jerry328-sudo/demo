@@ -6,10 +6,11 @@
   <meta name="description" content="用一个小型神经网络学习平衡倒立摆，对比训练前、训练后与自己训练的策略。">
   <title>CartPole：小车怎样学会保持平衡</title>
   <link rel="icon" type="image/webp" href="../assets/images/cropped-logo1.webp">
-  <link rel="stylesheet" href="cartpole/style.css?v=20261018-weights">
+  <link rel="stylesheet" href="cartpole/style.css?v=20261018-surface">
   <script src="cartpole/model.js?v=20261018-local" defer></script>
   <script src="cartpole/example.js?v=20261018-local" defer></script>
-  <script src="cartpole/app.js?v=20261018-weights" defer></script>
+  <script src="cartpole/surface.js?v=20261018-surface" defer></script>
+  <script src="cartpole/app.js?v=20261018-surface" defer></script>
 </head>
 <body>
   <header class="page-header">
@@ -61,6 +62,7 @@
           </dl>
         </div>
         <p id="network-hint" class="legend small">粗细始终使用同一尺度。默认跟踪变化最大的连接；点击或轻触连线可固定查看，键盘 ← → 切换、Esc 恢复自动。输入先缩放，节点明暗表示当前数值大小。</p>
+        <a class="surface-jump" href="#decision-surface">把这个网络看成一张决策曲面 ↓</a>
       </section>
     </div>
     <aside class="controls" aria-labelledby="training-title">
@@ -99,6 +101,30 @@
         </details>
       </section>
     </aside>
+    <section id="decision-surface" class="panel surface-panel" aria-labelledby="surface-title">
+      <div class="surface-heading">
+        <div><h2 id="surface-title">3. 把这个函数画成一张曲面</h2><p class="legend">横向看角度、纵深看角速度，高度看向右推的概率。位置和速度先固定，再用滑块查看其他切片。</p></div>
+        <button id="surface-example" type="button">切换到已训练示例</button>
+      </div>
+      <p id="surface-source" class="network-source">当前曲面：未训练</p>
+      <div class="slice-controls">
+        <div><label for="slice-position">固定小车位置 <output id="slice-position-value" for="slice-position">0.0 m</output></label><input id="slice-position" type="range" min="-2" max="2" step="0.1" value="0"></div>
+        <div><label for="slice-velocity">固定小车速度 <output id="slice-velocity-value" for="slice-velocity">0.0 m/s</output></label><input id="slice-velocity" type="range" min="-2" max="2" step="0.1" value="0"></div>
+      </div>
+      <div class="surface-plots">
+        <figure><figcaption><span>训练前 · 随机初始化</span><span id="surface-before-range"></span></figcaption><canvas id="surface-before" class="decision-surface" tabindex="0" aria-describedby="surface-hint">固定位置、速度后，网络在不同倾斜角度与角速度下的向右推概率。下方提供可读的数值对照。</canvas></figure>
+        <figure><figcaption><span>当前选中的策略</span><span id="surface-selected-range"></span></figcaption><canvas id="surface-selected" class="decision-surface" tabindex="0" aria-describedby="surface-hint">当前策略的决策曲面。点击曲面，或用方向键选择角度与角速度。</canvas></figure>
+      </div>
+      <div class="surface-footer">
+        <div class="surface-key"><span>0% · 向左</span><i aria-hidden="true"></i><span>向右 · 100%</span><span class="boundary-key">白线 = 50% 分界</span></div>
+        <div class="surface-view" role="group" aria-label="调整两张曲面的共同视角"><button id="surface-left" class="secondary" type="button" aria-label="向左转动视角">↶ 左转</button><button id="surface-right" class="secondary" type="button" aria-label="向右转动视角">右转 ↷</button><button id="surface-reset" class="secondary" type="button">视角与选点复位</button></div>
+      </div>
+      <div class="surface-probe" role="status" aria-live="polite" aria-atomic="true">
+        <span id="probe-state">角度 0.0°，角速度 0.00 rad/s</span>
+        <span>向右推概率：训练前 <strong id="probe-before">—</strong> → 当前 <strong id="probe-selected">—</strong></span>
+      </div>
+      <p id="surface-hint" class="legend small">点击或轻触曲面上的点可读数；键盘 ← → 调角度、↑ ↓ 调角速度。白点是你选的测试状态。两图共用坐标和颜色，概率由网络逐点计算，网格之间用平面连接；它展示固定位置、速度时的一张切片。</p>
+    </section>
   </main>
   <noscript><p>请启用 JavaScript，运行本地训练与小车动画。</p></noscript>
 </body>

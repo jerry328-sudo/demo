@@ -189,6 +189,29 @@ button:not(:disabled):hover,
 .weight-values dd { font-family: Consolas, monospace; font-size: 0.94rem; margin-top: 3px; }
 .weight-values .positive-weight, .weight-values .negative-weight { font-weight: 600; }
 
+.surface-jump { color: #7dd3fc; font-size: 0.84rem; text-underline-offset: 3px; }
+.surface-panel { grid-column: 1 / -1; gap: 14px; scroll-margin-top: 16px; }
+.surface-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.surface-heading h2 { margin-bottom: 8px; }
+.surface-heading button { flex-shrink: 0; }
+.slice-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 32px; }
+.slice-controls label { display: flex; justify-content: space-between; gap: 12px; font-size: 0.85rem; }
+.slice-controls output { color: #7dd3fc; font-variant-numeric: tabular-nums; }
+.slice-controls input { width: 100%; accent-color: #38bdf8; min-height: 32px; margin: 5px 0 0; }
+.surface-plots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.surface-plots figure { margin: 0; min-width: 0; }
+.surface-plots figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; font-size: 0.85rem; color: #e2e8f0; margin-bottom: 8px; }
+.surface-plots figcaption span + span { font-size: 0.77rem; color: #a6b8ce; }
+.surface-plots .decision-surface { display: block; width: 100%; height: 340px; cursor: crosshair; }
+.surface-footer { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 14px; }
+.surface-key { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 0.76rem; color: #cbd5e1; }
+.surface-key i { display: inline-block; width: 90px; height: 10px; background: linear-gradient(90deg, #fb7185, #64748b, #38bdf8); border-radius: 3px; }
+.boundary-key { padding-left: 8px; color: #f1f5f9; }
+.surface-view { display: flex; flex-wrap: wrap; gap: 8px; }
+.surface-view button { padding: 7px 10px; font-size: 0.8rem; min-height: 36px; }
+.surface-probe { padding: 12px; border: 1px solid #3b4e69; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 0.85rem; color: #cbd5e1; }
+.surface-probe strong { color: #7dd3fc; font-variant-numeric: tabular-nums; }
+
 .legend.small {
   font-size: 0.78rem;
   color: rgba(226, 232, 240, 0.7);
@@ -211,6 +234,13 @@ button:not(:disabled):hover,
   .panel .network { height: 300px; }
   h1 { font-size: 1.5rem; }
   #status { min-height: 0; }
+}
+
+@media (max-width: 680px) {
+  .surface-heading { flex-direction: column; gap: 12px; }
+  .slice-controls, .surface-plots { grid-template-columns: 1fr; }
+  .slice-controls { gap: 8px; }
+  .surface-plots .decision-surface { height: 300px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

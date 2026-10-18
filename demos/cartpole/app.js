@@ -51,6 +51,7 @@ function updateNetworkSource() {
   };
   $('network-source').textContent = labels[mode];
   $('network-source').dataset.live = String(mode === 'current' && training);
+  decisionSurface.setPolicy(policy, labels[mode]);
 }
 
 function updateTrainingStats(result) {
@@ -310,6 +311,7 @@ function animate(now) {
     decision = policy.act(env.state());
     shownDecision = decision;
     shownParameters = policy.snapshot();
+    decisionSurface.setPolicy(policy, $('network-source').textContent);
     drawNetwork();
     const [x, velocity, angle, angularVelocity] = shownDecision.state;
     $('state-x').textContent = `${x.toFixed(2)} m`;
@@ -323,6 +325,8 @@ function animate(now) {
   requestAnimationFrame(animate);
 }
 
+const decisionSurface = new globalThis.CartPoleDemo.DecisionSurface();
+$('surface-example').addEventListener('click', () => { $('policy').value = 'example'; selectPolicy(); });
 selectPolicy();
 updateTrainingStats();
 requestAnimationFrame(animate);

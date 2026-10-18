@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check js/main.js && node --check demos/brillouin_sampling.js && node --check demos/brillouin_sampling_math.js && node --check demos/cnn-conv1d.js && node --check demos/cnn-conv1d-math.js && node --check demos/gcn-inductive/model.js && node --check demos/gcn-inductive/app.js && node --check demos/attention-mechanisms/math.js && node --check demos/attention-mechanisms/app.js && node --check demos/chernobyl-core/js/model.js && node --check demos/chernobyl-core/js/simulator.js && node --check demos/cartpole/model.js && node --check demos/cartpole/app.js && node --check demos/cartpole/example.js && node --check demos/cartpole/train.js",
+    "check": "node --check js/main.js && node --check demos/brillouin_sampling.js && node --check demos/brillouin_sampling_math.js && node --check demos/cnn-conv1d.js && node --check demos/cnn-conv1d-math.js && node --check demos/gcn-inductive/model.js && node --check demos/gcn-inductive/app.js && node --check demos/attention-mechanisms/math.js && node --check demos/attention-mechanisms/app.js && node --check demos/chernobyl-core/js/model.js && node --check demos/chernobyl-core/js/simulator.js && node --check demos/cartpole/model.js && node --check demos/cartpole/surface.js && node --check demos/cartpole/app.js && node --check demos/cartpole/example.js && node --check demos/cartpole/train.js",
     "check:brillouin": "node --test demos/brillouin_sampling.test.js",
     "check:cnn": "node --test demos/cnn-conv1d.test.js",
     "check:gcn": "node --test demos/gcn-inductive/model.test.js",
     "check:attention": "node --test demos/attention-mechanisms/math.test.js",
-    "check:cartpole": "node --test demos/cartpole/model.test.js",
+    "check:cartpole": "node --test demos/cartpole/model.test.js demos/cartpole/surface.test.js",
     "train:cartpole": "node demos/cartpole/train.js",
     "build": "echo \"Static site build step not required\""
   }
