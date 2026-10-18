@@ -6,10 +6,10 @@
   <meta name="description" content="用一个小型神经网络学习平衡倒立摆，对比训练前、训练后与自己训练的策略。">
   <title>CartPole：小车怎样学会保持平衡</title>
   <link rel="icon" type="image/webp" href="../assets/images/cropped-logo1.webp">
-  <link rel="stylesheet" href="cartpole/style.css?v=20261018">
+  <link rel="stylesheet" href="cartpole/style.css?v=20261018-weights">
   <script src="cartpole/model.js?v=20261018-local" defer></script>
   <script src="cartpole/example.js?v=20261018-local" defer></script>
-  <script src="cartpole/app.js?v=20261018-local" defer></script>
+  <script src="cartpole/app.js?v=20261018-weights" defer></script>
 </head>
 <body>
   <header class="page-header">
@@ -26,6 +26,7 @@
           <select id="policy">
             <option value="before">未训练</option>
             <option value="example">已训练示例</option>
+            <option value="current" id="current-policy" disabled>正在学习的策略</option>
             <option value="mine" id="my-policy" disabled>我的最优策略</option>
           </select>
           <button id="replay" class="secondary" type="button">从头重放</button>
@@ -43,8 +44,23 @@
       </section>
       <section class="panel" aria-labelledby="network-title">
         <h2 id="network-title">小网络，只有一层隐藏层</h2>
-        <canvas id="networkViz" class="network" aria-label="4 个输入、8 个隐藏节点、2 个动作概率的神经网络">输入四个观察值，输出向左推和向右推的概率。</canvas>
-        <p class="legend small">输入先缩放到相近量级。蓝线是正权重，红线是负权重；线越粗，权重绝对值越大。节点颜色表示当前数值的正负。</p>
+        <p id="network-source" class="network-source">未训练 · 权重固定</p>
+        <canvas id="networkViz" class="network" tabindex="0" aria-describedby="network-hint" aria-label="4 个输入、8 个隐藏节点、2 个动作概率的神经网络">输入四个观察值，输出向左推和向右推的概率。使用左右方向键选择连线，查看下方真实权重。</canvas>
+        <div class="weight-legend" aria-label="线宽使用固定尺度，权重绝对值越大越粗">
+          <span class="positive-weight">蓝：正权重</span><span class="negative-weight">红：负权重</span>
+          <span><i class="weight-swatch weight-thin" aria-hidden="true"></i>|w| = 0</span>
+          <span><i class="weight-swatch weight-medium" aria-hidden="true"></i>0.25</span>
+          <span><i class="weight-swatch weight-thick" aria-hidden="true"></i>1</span>
+        </div>
+        <div class="connection-detail" role="status" aria-live="polite" aria-atomic="true">
+          <div class="connection-heading"><span id="connection-name"></span><button id="connection-auto" class="secondary" type="button" hidden>自动跟踪</button></div>
+          <dl class="weight-values">
+            <div><dt>训练前</dt><dd id="weight-before">—</dd></div>
+            <div><dt>当前权重</dt><dd id="weight-current">—</dd></div>
+            <div><dt>变化量</dt><dd id="weight-change">—</dd></div>
+          </dl>
+        </div>
+        <p id="network-hint" class="legend small">粗细始终使用同一尺度。默认跟踪变化最大的连接；点击或轻触连线可固定查看，键盘 ← → 切换、Esc 恢复自动。输入先缩放，节点明暗表示当前数值大小。</p>
       </section>
     </div>
     <aside class="controls" aria-labelledby="training-title">
