@@ -27,6 +27,7 @@ demo/
 │   ├── brillouin_sampling.html  # 布里渊区采样演示
 │   ├── cnn-conv1d.html    # CNN 卷积核可视化
 │   ├── chernobyl-core/    # 切尔诺贝利反应堆模拟器
+│   ├── lbm_3d.html        # 玻尔兹曼格子法 (LBM) 3D 交互演示
 │   ├── CartPole.html      # CartPole 强化学习演示
 │   ├── cartpole/          # 小型策略网络、训练、测试与已训练示例
 │   ├── gravity/           # 几何即引力交互课堂
@@ -55,6 +56,7 @@ python3 -m http.server 8000
 - **洛伦兹时空图** - 基于 Three.js 的闵可夫斯基时空图交互演示
 - **布里渊区采样** - 第一布里渊区可视化工具
 - **[切尔诺贝利反应堆模拟器](demos/chernobyl-core/index.html)** - RBMK 堆芯三维可视化、自由操作与事故时间线，支持中英文；采用定性教学模型，Three.js 与字体通过 CDN 加载
+- **[玻尔兹曼格子法（LBM）3D 交互演示](demos/lbm_3d.html)** - D2Q9 微观四步演化（碰撞、迁移、反弹、宏观统计）与 GPU/CPU 实时三维风洞（卡门涡街、翼型与自定义障碍物）；Three.js、Tailwind CSS 与字体通过 CDN 加载
 - **CNN 卷积核可视化** - Conv1d 交互式可视化实验
 - **CartPole 强化学习** - 4→8→2 小网络与 REINFORCE；对比未训练、已训练示例和自己的最优策略，区分探索得分与独立评估
 - **几何即引力** - 从度规到爱因斯坦场方程的交互式相对论课堂

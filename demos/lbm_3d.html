@@ -1,0 +1,3372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="D2Q9 玻尔兹曼格子法 (LBM) 三维交互演示：微观四步演化步进与 GPU 实时卡门涡街风洞。" />
+  <title>玻尔兹曼格子法 (LBM) 3D 交互演示 - D2Q9</title>
+  <link rel="icon" type="image/webp" href="../assets/images/cropped-logo1.webp" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- 通过 jsDelivr CDN 引入 Three.js 0.160.0 与 OrbitControls -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 35%, #0f1b33 0%, #070b14 70%, #03050a 100%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #e2e8f0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .glass-panel {
+      background: rgba(10, 17, 32, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.3);
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.35);
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(56, 189, 248, 0.6);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.85);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 2px solid #e0f2fe;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+    .formula-box {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.68));
+      border: 1px solid rgba(56, 189, 248, 0.28);
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Three.js 3D 渲染画布容器 -->
+  <div id="canvas-container"></div>
+
+  <!-- 顶部导航栏 -->
+  <header id="top-header" class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+    <!-- 标题徽章 -->
+    <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-3 pointer-events-auto">
+      <a href="../index.html" aria-label="返回项目目录" title="返回项目目录" class="px-2 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-slate-300 hover:text-white text-xs font-medium transition shrink-0">
+        ← 目录
+      </a>
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 shrink-0">
+        <!-- D2Q9 离散速度示意图 SVG -->
+        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+          <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-white leading-tight">玻尔兹曼格子法 (LBM) 3D 交互演示</h1>
+          <span class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">D2Q9 模型</span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden md:block">从介观粒子分布函数演化到宏观流体力学现象</p>
+      </div>
+    </div>
+
+    <!-- 模式切换器 -->
+    <div class="glass-panel rounded-2xl p-1.5 flex items-center gap-1 pointer-events-auto">
+      <button id="btn-mode-micro" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30">
+        微观原理演示 <span class="hidden sm:inline opacity-75">(D2Q9 步进)</span>
+      </button>
+      <button id="btn-mode-macro" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800/70">
+        宏观实时风洞 <span class="hidden sm:inline opacity-75">(卡门涡街)</span>
+      </button>
+    </div>
+
+    <!-- 右侧实时性能与物理量监控 -->
+    <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-3 pointer-events-auto">
+      <div class="flex items-center gap-3 text-xs font-mono-code">
+        <div id="stat-engine-wrap" class="hidden sm:flex flex-col items-end">
+          <span class="text-[10px] text-slate-400">求解后端</span>
+          <span id="stat-engine" class="text-cyan-300 font-semibold">CPU · 微观</span>
+        </div>
+        <div class="flex flex-col items-end border-l border-slate-700/80 pl-3">
+          <span class="text-[10px] text-slate-400">FPS</span>
+          <span id="stat-fps" class="text-emerald-400 font-semibold">60</span>
+        </div>
+        <div id="stat-re-wrap" class="hidden flex-col items-end border-l border-slate-700/80 pl-3">
+          <span class="text-[10px] text-slate-400">雷诺数 Re</span>
+          <span id="stat-re" class="text-amber-300 font-semibold">--</span>
+        </div>
+        <div id="stat-step-wrap" class="flex flex-col items-end border-l border-slate-700/80 pl-3">
+          <span class="text-[10px] text-slate-400">时间步 t</span>
+          <span id="stat-step" class="text-cyan-300 font-semibold">0</span>
+        </div>
+      </div>
+      <button id="btn-toggle-ui" type="button" title="折叠/展开控制面板" aria-label="折叠或展开控制面板" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- 左侧控制面板 -->
+  <aside id="left-panel" class="fixed top-20 left-3 bottom-16 lg:bottom-3 w-[312px] max-w-[calc(100vw-24px)] z-10 flex flex-col gap-3 pointer-events-none transition-transform duration-300">
+    <!-- 模式一控制区：微观原理演示 -->
+    <div id="controls-micro" class="glass-panel rounded-2xl p-4 flex flex-col gap-3.5 overflow-y-auto custom-scroll pointer-events-auto max-h-full">
+      <div class="flex items-center justify-between border-b border-slate-700/60 pb-2.5">
+        <h2 class="text-sm font-bold text-cyan-300 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+          微观四步演化控制
+        </h2>
+        <span id="micro-grid-badge" class="text-[11px] font-mono-code text-slate-400">9×5 离散格点</span>
+      </div>
+
+      <!-- 手动设置微观格点尺寸 -->
+      <div class="rounded-xl bg-slate-900/65 border border-slate-700/60 p-2.5 space-y-2">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="text-slate-300 font-medium">自定义格点尺寸 (Nx × Ny)</span>
+          <span class="text-[10px] text-slate-500">5~15 × 3~9</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <input id="input-micro-nx" type="number" min="5" max="15" value="9" class="w-16 px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-xs font-mono-code text-cyan-200 focus:border-cyan-400 focus:outline-none text-center" />
+          <span class="text-slate-500 text-xs font-mono-code">×</span>
+          <input id="input-micro-ny" type="number" min="3" max="9" value="5" class="w-16 px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-xs font-mono-code text-cyan-200 focus:border-cyan-400 focus:outline-none text-center" />
+          <button id="btn-micro-apply-grid" class="flex-1 py-1 px-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/50 text-cyan-200 text-xs font-semibold transition">
+            应用网格
+          </button>
+        </div>
+      </div>
+
+      <!-- 四步流程高亮指示器 -->
+      <div class="grid grid-cols-4 gap-1.5 text-center">
+        <div id="step-pill-0" class="step-pill rounded-xl py-1.5 px-1 text-[11px] font-medium border border-slate-700/80 bg-slate-900/60 text-slate-400 transition-all">
+          <div class="text-[10px] opacity-70">步骤 1</div>
+          <div>碰撞</div>
+        </div>
+        <div id="step-pill-1" class="step-pill rounded-xl py-1.5 px-1 text-[11px] font-medium border border-slate-700/80 bg-slate-900/60 text-slate-400 transition-all">
+          <div class="text-[10px] opacity-70">步骤 2</div>
+          <div>迁移</div>
+        </div>
+        <div id="step-pill-2" class="step-pill rounded-xl py-1.5 px-1 text-[11px] font-medium border border-slate-700/80 bg-slate-900/60 text-slate-400 transition-all">
+          <div class="text-[10px] opacity-70">步骤 3</div>
+          <div>反弹</div>
+        </div>
+        <div id="step-pill-3" class="step-pill rounded-xl py-1.5 px-1 text-[11px] font-medium border border-slate-700/80 bg-slate-900/60 text-slate-400 transition-all">
+          <div class="text-[10px] opacity-70">步骤 4</div>
+          <div>宏观</div>
+        </div>
+      </div>
+
+      <!-- 播放与单步按钮 -->
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-micro-play" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-semibold shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-1.5 transition">
+          <span id="micro-play-icon">▶</span>
+          <span id="micro-play-text">自动循环</span>
+        </button>
+        <button id="btn-micro-step" class="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-slate-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+          <span>⏭</span>
+          <span>单步执行</span>
+        </button>
+      </div>
+
+      <!-- 脉冲激励与重置 -->
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-micro-pulse" class="py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-xs font-semibold transition">
+          ⚡ 注入脉冲
+        </button>
+        <button id="btn-micro-reset" class="py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-rose-500/25 border border-slate-700 hover:border-rose-400/40 text-slate-300 hover:text-rose-200 text-xs font-semibold transition">
+          ↺ 重置网格
+        </button>
+      </div>
+
+      <!-- 参数滑块 -->
+      <div class="space-y-3 pt-1">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">弛豫时间 τ <span class="text-slate-500">(控制粘性)</span></span>
+            <span id="val-micro-tau" class="font-mono-code text-cyan-300 font-semibold">0.80</span>
+          </div>
+          <input id="slider-micro-tau" type="range" min="0.55" max="1.60" step="0.05" value="0.80" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">动画演示速度</span>
+            <span id="val-micro-speed" class="font-mono-code text-cyan-300 font-semibold">1.0x</span>
+          </div>
+          <input id="slider-micro-speed" type="range" min="0.3" max="2.5" step="0.1" value="1.0" class="w-full" />
+        </div>
+      </div>
+
+      <!-- 交互提示 -->
+      <div class="rounded-xl bg-slate-900/75 border border-slate-700/60 p-3 text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
+        <div class="font-semibold text-cyan-300">交互指南：</div>
+        <div>• <span class="text-white font-medium">点击任意 3D 格点</span>：切换固体障碍物 / 流体格点，观察无滑移反弹。</div>
+        <div>• <span class="text-white font-medium">悬停格点</span>：在右侧探针面板查看实时 ρ、u 矢量及 9 个分布函数 fᵢ。</div>
+        <div>• <span class="text-white font-medium">鼠标拖拽 / 滚轮</span>：3D 旋转、平移与缩放视角。</div>
+      </div>
+
+      <!-- 图例说明 -->
+      <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-700/60">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-cyan-400 shadow shadow-cyan-400/60"></span>
+          <span class="text-slate-300">粒子分布 fᵢ (c₀~c₈)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-amber-400 shadow shadow-amber-400/60"></span>
+          <span class="text-slate-300">宏观速度矢量 u</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-rose-500 shadow shadow-rose-500/60"></span>
+          <span class="text-slate-300">撞击反弹粒子包</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-slate-600 border border-slate-400"></span>
+          <span class="text-slate-300">固体障碍物块</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模式二控制区：宏观实时风洞 -->
+    <div id="controls-macro" class="hidden glass-panel rounded-2xl p-4 flex flex-col gap-3.5 overflow-y-auto custom-scroll pointer-events-auto max-h-full">
+      <div class="flex items-center justify-between border-b border-slate-700/60 pb-2.5">
+        <h2 class="text-sm font-bold text-cyan-300 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          宏观 3D 风洞控制台
+        </h2>
+        <span id="macro-grid-badge" class="text-[11px] font-mono-code text-emerald-300">200×88 · GPU</span>
+      </div>
+
+      <!-- 播放与重置 -->
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-macro-play" class="py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/20 transition">
+          ⏸ 暂停模拟
+        </button>
+        <button id="btn-macro-reset" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-slate-200 text-xs font-semibold transition">
+          ↺ 重置流场
+        </button>
+      </div>
+
+      <!-- 求解后端选择 (GPU WebGL2 MRT / CPU JS) -->
+      <div class="rounded-xl bg-slate-900/65 border border-slate-700/60 p-2.5 space-y-2">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="text-slate-300 font-medium">LBM 求解计算引擎</span>
+          <span id="gpu-precision-badge" class="font-mono-code text-[10px] text-emerald-400">WebGL2 Float32</span>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button data-backend="gpu" class="macro-backend-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-emerald-500/25 border border-emerald-400/60 text-emerald-200 transition">
+            ⚡ GPU 并行
+          </button>
+          <button data-backend="cpu" class="macro-backend-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">
+            🖥 CPU 单线程
+          </button>
+        </div>
+      </div>
+
+      <!-- 手动设置格点分辨率 -->
+      <div class="rounded-xl bg-slate-900/65 border border-slate-700/60 p-2.5 space-y-2">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="text-slate-300 font-medium">手动设置格点 (Nx × Ny)</span>
+          <span id="macro-cell-count" class="font-mono-code text-[10px] text-cyan-300">17,600 格点</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1">
+          <button data-res="100x44" class="macro-res-btn py-1 rounded-lg text-[10px] font-mono-code bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">100×44</button>
+          <button data-res="200x88" class="macro-res-btn py-1 rounded-lg text-[10px] font-mono-code bg-cyan-500/25 border border-cyan-400/60 text-cyan-200 transition">200×88</button>
+          <button data-res="320x140" class="macro-res-btn py-1 rounded-lg text-[10px] font-mono-code bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">320×140</button>
+          <button data-res="512x224" class="macro-res-btn py-1 rounded-lg text-[10px] font-mono-code bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">512×224</button>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <input id="input-macro-nx" type="number" min="32" max="1024" step="1" value="200" class="w-16 px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-xs font-mono-code text-cyan-200 focus:border-cyan-400 focus:outline-none text-center" />
+          <span class="text-slate-500 text-xs font-mono-code">×</span>
+          <input id="input-macro-ny" type="number" min="24" max="512" step="1" value="88" class="w-16 px-2 py-1 rounded-lg bg-slate-950/90 border border-slate-700 text-xs font-mono-code text-cyan-200 focus:border-cyan-400 focus:outline-none text-center" />
+          <button id="btn-macro-apply-grid" class="flex-1 py-1 px-2 rounded-lg bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-400/60 text-cyan-200 text-xs font-semibold transition">
+            应用网格
+          </button>
+        </div>
+        <div class="text-[10px] text-slate-500">支持范围：Nx 32~1024，Ny 24~512（大网格建议使用 GPU）</div>
+      </div>
+
+      <!-- 4 种预设风洞场景 -->
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">风洞预设场景</label>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button data-preset="cylinder" class="macro-preset-btn py-1.5 px-2 rounded-xl text-xs font-medium bg-cyan-500/25 border border-cyan-400/60 text-cyan-200 transition">圆柱绕流</button>
+          <button data-preset="airfoil" class="macro-preset-btn py-1.5 px-2 rounded-xl text-xs font-medium bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">翼型绕流</button>
+          <button data-preset="twin" class="macro-preset-btn py-1.5 px-2 rounded-xl text-xs font-medium bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">双柱干扰</button>
+          <button data-preset="slit" class="macro-preset-btn py-1.5 px-2 rounded-xl text-xs font-medium bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition">窄缝射流</button>
+        </div>
+      </div>
+
+      <!-- 物理量着色切换 -->
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">3D 曲面着色与高度物理量</label>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button data-field="vorticity" class="macro-field-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-cyan-500 text-slate-950 transition">旋度</button>
+          <button data-field="velocity" class="macro-field-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">速度大小</button>
+          <button data-field="density" class="macro-field-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">密度</button>
+        </div>
+      </div>
+
+      <!-- 交互工具切换 -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="block text-xs text-slate-400">鼠标左键交互模式</label>
+          <button id="btn-macro-clear-solid" class="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/15 hover:bg-rose-500/30 border border-rose-400/35 text-rose-300 transition">清空障碍</button>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button data-tool="orbit" class="macro-tool-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-indigo-500 text-white transition">🔄 视角旋转</button>
+          <button data-tool="draw" class="macro-tool-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🧱 绘制障碍</button>
+          <button data-tool="erase" class="macro-tool-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition">🧹 擦除障碍</button>
+        </div>
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-400">障碍画笔半径</span>
+            <span id="val-macro-brush" class="font-mono-code text-cyan-300 font-semibold">4.0 格</span>
+          </div>
+          <input id="slider-macro-brush" type="range" min="1.0" max="16.0" step="0.5" value="4.0" class="w-full" />
+        </div>
+        <p class="text-[10px] text-slate-400">提示：绘制或擦除障碍物时，按住鼠标右键仍可旋转视角。</p>
+      </div>
+
+      <!-- 宏观模拟参数滑块 -->
+      <div class="space-y-3 pt-1">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">每帧迭代步数 <span class="text-slate-500">(演进速度)</span></span>
+            <span id="val-macro-steps" class="font-mono-code text-cyan-300 font-semibold">10</span>
+          </div>
+          <input id="slider-macro-steps" type="range" min="1" max="30" step="1" value="10" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">弛豫时间 τ <span class="text-slate-500">(越小粘性越低)</span></span>
+            <span id="val-macro-tau" class="font-mono-code text-cyan-300 font-semibold">0.550</span>
+          </div>
+          <input id="slider-macro-tau" type="range" min="0.515" max="1.200" step="0.005" value="0.550" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">入口流速 u₀</span>
+            <span id="val-macro-u0" class="font-mono-code text-cyan-300 font-semibold">0.110</span>
+          </div>
+          <input id="slider-macro-u0" type="range" min="0.030" max="0.160" step="0.005" value="0.110" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">3D 起伏高度缩放</span>
+            <span id="val-macro-height" class="font-mono-code text-cyan-300 font-semibold">1.2</span>
+          </div>
+          <input id="slider-macro-height" type="range" min="0.0" max="3.0" step="0.1" value="1.2" class="w-full" />
+        </div>
+
+        <label class="flex items-center justify-between pt-1 cursor-pointer">
+          <span class="text-xs text-slate-200 font-medium">显示流动示踪粒子 (GPU Tracers)</span>
+          <input id="toggle-tracers" type="checkbox" checked class="w-4 h-4 accent-cyan-400 rounded cursor-pointer" />
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 右侧教学原理解析与数据探针区 -->
+  <aside id="right-panel" class="fixed top-20 right-3 bottom-3 w-[322px] max-w-[calc(100vw-24px)] z-10 hidden lg:flex flex-col gap-3 pointer-events-none">
+    <!-- 动态原理解析卡片 -->
+    <div class="glass-panel rounded-2xl p-4 pointer-events-auto flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <span id="edu-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">D2Q9 离散模型</span>
+        <span class="text-[11px] text-slate-400 font-mono-code">原理解析</span>
+      </div>
+      <h3 id="edu-title" class="text-sm font-bold text-white leading-snug">D2Q9 离散速度模型与介观演化</h3>
+      <p id="edu-desc" class="text-xs text-slate-300 leading-relaxed">
+        玻尔兹曼格子法（LBM）将流体抽象为在规则网格上运动的虚拟粒子群，用 9 个离散方向的分布函数 f₀~f₈ 描述介观状态。
+      </p>
+      <div id="edu-formula" class="formula-box rounded-xl px-3 py-2.5 text-xs font-mono-code text-cyan-200 overflow-x-auto">
+        fᵢ(x + cᵢΔt, t + Δt) - fᵢ(x, t) = -(1/τ)[fᵢ - fᵢᵉᑫ]
+      </div>
+    </div>
+
+    <!-- 微观模式：格点实时探针面板 -->
+    <div id="micro-probe-card" class="glass-panel rounded-2xl p-4 pointer-events-auto flex flex-col gap-2.5 overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+        <h3 class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+          <span>🔍</span> 格点状态探针
+        </h3>
+        <span id="probe-coord" class="text-[11px] font-mono-code text-slate-400">悬停格点查看</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="rounded-xl bg-slate-900/70 p-2 border border-slate-800">
+          <div class="text-[10px] text-slate-400">密度 ρ</div>
+          <div id="probe-rho" class="text-xs font-mono-code font-semibold text-white mt-0.5">--</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/70 p-2 border border-slate-800">
+          <div class="text-[10px] text-slate-400">速度 uₓ</div>
+          <div id="probe-ux" class="text-xs font-mono-code font-semibold text-cyan-300 mt-0.5">--</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/70 p-2 border border-slate-800">
+          <div class="text-[10px] text-slate-400">速度 uᵧ</div>
+          <div id="probe-uy" class="text-xs font-mono-code font-semibold text-cyan-300 mt-0.5">--</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="text-[10px] text-slate-400 mb-1.5 flex justify-between">
+          <span>9 个离散方向分布函数 fᵢ</span>
+          <span id="probe-type" class="text-emerald-400">流体格点</span>
+        </div>
+        <div id="probe-f-grid" class="grid grid-cols-3 gap-1.5 font-mono-code text-[10px]">
+          <!-- 由 JS 动态渲染 3x3 分布函数数值卡片 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 宏观模式：色标与物理量卡片 -->
+    <div id="macro-legend-card" class="hidden glass-panel rounded-2xl p-4 pointer-events-auto flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold text-cyan-300">物理量色标与参数</h3>
+        <span id="macro-field-label" class="text-[11px] text-slate-300">旋度 (Vorticity)</span>
+      </div>
+      <div>
+        <div id="macro-colorbar" class="h-3 w-full rounded-full border border-slate-700" style="background: linear-gradient(90deg, #1d4ed8, #06b6d4, #0f172a, #f97316, #ef4444);"></div>
+        <div class="flex justify-between text-[10px] font-mono-code text-slate-400 mt-1">
+          <span id="colorbar-min">顺时针 (-ω)</span>
+          <span id="colorbar-mid">0</span>
+          <span id="colorbar-max">逆时针 (+ω)</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-[11px] font-mono-code pt-1 border-t border-slate-700/60">
+        <div class="rounded-xl bg-slate-900/70 p-2 border border-slate-800">
+          <div class="text-[10px] text-slate-400">运动粘性 ν</div>
+          <div id="macro-nu" class="text-cyan-300 font-semibold mt-0.5">0.0167</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/70 p-2 border border-slate-800">
+          <div class="text-[10px] text-slate-400">马赫数 Ma</div>
+          <div id="macro-ma" class="text-amber-300 font-semibold mt-0.5">0.19</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 移动端底部简短原理提示条 -->
+  <div id="mobile-edu-bar" class="fixed bottom-3 left-3 right-3 z-10 lg:hidden glass-panel rounded-2xl px-3.5 py-2.5 pointer-events-auto">
+    <div class="flex items-center justify-between gap-2">
+      <span id="mobile-edu-title" class="text-xs font-bold text-cyan-300 truncate">D2Q9 微观四步演化</span>
+      <span id="mobile-edu-formula" class="text-[10px] font-mono-code text-slate-300 truncate">fᵢ* = fᵢ - (1/τ)(fᵢ - fᵢᵉᑫ)</span>
+    </div>
+  </div>
+
+  <!-- 主应用脚本 -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // =========================================================================
+    // 1. D2Q9 模型常量与基础物理计算
+    // =========================================================================
+    // 离散速度方向: 0:静止, 1:右, 2:上, 3:左, 4:下, 5:右上, 6:左上, 7:左下, 8:右下
+    const CX = [0, 1, 0, -1, 0, 1, -1, -1, 1];
+    const CY = [0, 0, 1, 0, -1, 1, 1, -1, -1];
+    const W  = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
+    const OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
+    const DIR_LABELS = ['c₀(0,0)', 'c₁(→)', 'c₂(↑)', 'c₃(←)', 'c₄(↓)', 'c₅(↗)', 'c₆(↖)', 'c₇(↙)', 'c₈(↘)'];
+    const PROBE_ORDER = [6, 2, 5, 3, 0, 1, 7, 4, 8];
+
+    const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
+
+    // 计算 D2Q9 局部麦克斯韦平衡态分布函数 f_i^eq
+    function calcFeq(i, rho, ux, uy) {
+      const cu = CX[i] * ux + CY[i] * uy;
+      const u2 = ux * ux + uy * uy;
+      return W[i] * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * u2);
+    }
+
+    // 提前声明全局实例引用，避免任何暂时性死区 (TDZ) 问题
+    let microSim = null;
+    let macroSim = null;
+    let currentMode = 'micro'; // 'micro' | 'macro'
+
+    // =========================================================================
+    // 2. Three.js 场景、相机、渲染器与科研级光照
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x060b16, 0.0105);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 400);
+    camera.position.set(0, 19, 19);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI * 0.485;
+    controls.minDistance = 6;
+    controls.maxDistance = 95;
+    controls.target.set(0, 0, 0);
+
+    // 三点光照
+    const ambientLight = new THREE.AmbientLight(0x94b8e0, 0.7);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight.position.set(18, 35, 22);
+    scene.add(dirLight);
+
+    const rimLight = new THREE.PointLight(0x38bdf8, 1.85, 130);
+    rimLight.position.set(-22, 16, -18);
+    scene.add(rimLight);
+
+    const accentLight = new THREE.PointLight(0xf59e0b, 0.9, 110);
+    accentLight.position.set(22, 12, -15);
+    scene.add(accentLight);
+
+    const microGroup = new THREE.Group();
+    const macroGroup = new THREE.Group();
+    macroGroup.visible = false;
+    scene.add(microGroup);
+    scene.add(macroGroup);
+
+    // 相机平滑过渡状态
+    const camGoal = {
+      active: false,
+      pos: new THREE.Vector3(),
+      target: new THREE.Vector3()
+    };
+    function transitionCamera(pos, target) {
+      camGoal.pos.copy(pos);
+      camGoal.target.copy(target);
+      camGoal.active = true;
+    }
+
+    // =========================================================================
+    // 3. UI 同步函数（显式接收 sim 实例并带空值守卫，杜绝循环初始化依赖）
+    // =========================================================================
+    function updateEducationCard(mode, phase = -1, bounceCount = 0) {
+      const badge = document.getElementById('edu-badge');
+      const title = document.getElementById('edu-title');
+      const desc = document.getElementById('edu-desc');
+      const formula = document.getElementById('edu-formula');
+      const mTitle = document.getElementById('mobile-edu-title');
+      const mFormula = document.getElementById('mobile-edu-formula');
+
+      if (mode === 'macro') {
+        const nx = macroSim ? macroSim.nx : 200;
+        const ny = macroSim ? macroSim.ny : 88;
+        const isGpu = macroSim ? macroSim.backend === 'gpu' : true;
+        badge.textContent = isGpu ? 'GPU 并行 · 介观 → 宏观涌现' : 'CPU 求解 · 介观 → 宏观涌现';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+        title.textContent = '从局部规则涌现 Navier-Stokes 流体';
+        desc.textContent = isGpu
+          ? `当前在 ${nx}×${ny}（${(nx * ny).toLocaleString()} 格点）网格上，利用 WebGL2 多渲染目标 (MRT) 与 Ping-Pong 浮点纹理在 GPU 上全并行执行“拉取迁移 + 边界反弹 + BGK 碰撞”，零 CPU 回读直接渲染 3D 高度场与示踪粒子。`
+          : `当前在 ${nx}×${ny} 网格上使用 CPU 单线程求解每个格点的“碰撞 + 迁移 + 反弹”规则。可随时切回 GPU 并行模式以在更大分辨率下获得流畅帧率。`;
+        formula.textContent = 'ν = cₛ²(τ - 1/2)Δt ,   Re = u₀·D / ν';
+        mTitle.textContent = `宏观 3D 风洞 (${nx}×${ny} · ${isGpu ? 'GPU' : 'CPU'})`;
+        mFormula.textContent = 'ν = (τ - 0.5)/3, Re = u₀D/ν';
+        return;
+      }
+
+      const stepsInfo = {
+        '-1': {
+          badge: 'D2Q9 离散模型',
+          color: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30',
+          title: 'D2Q9 格子玻尔兹曼原理总览',
+          desc: '每个流体格点包含 9 个离散速度方向（中心静止球 c₀ 与 8 个邻域箭头 c₁~c₈）。点击“单步执行”或“自动循环”，分步观察碰撞、迁移、边界反弹与宏观统计四步循环。',
+          formula: 'fᵢ(x + cᵢΔt, t + Δt) = fᵢ - (1/τ)(fᵢ - fᵢᵉᑫ)'
+        },
+        '0': {
+          badge: '步骤 1 / 4 · Collision',
+          color: 'bg-sky-500/25 text-sky-200 border-sky-400/50',
+          title: '碰撞 (BGK 弛豫)',
+          desc: '在同一格点内部，各方向粒子分布 fᵢ 相互碰撞，以弛豫时间 τ 向局部平衡态 fᵢᵉᑫ 松弛。碰撞严格守恒局部质量与动量，τ 决定了流体的宏观运动粘性 ν。',
+          formula: 'fᵢ* = fᵢ - (1/τ)(fᵢ - fᵢᵉᑫ)'
+        },
+        '1': {
+          badge: '步骤 2 / 4 · Streaming',
+          color: 'bg-indigo-500/25 text-indigo-200 border-indigo-400/50',
+          title: '迁移 (Streaming / 传播)',
+          desc: '碰撞后的粒子分布包 fᵢ* 脱离原格点，沿着各自的离散速度矢量 cᵢ 精确飞行一个格距到达相邻格点。这是 LBM 中唯一的空间信息传递步骤。',
+          formula: 'fᵢ(x + cᵢΔt, t + Δt) = fᵢ*(x, t)'
+        },
+        '2': {
+          badge: '步骤 3 / 4 · Bounce-Back',
+          color: 'bg-rose-500/25 text-rose-200 border-rose-400/50',
+          title: '边界反弹 (无滑移条件)',
+          desc: bounceCount > 0
+            ? `当前有 ${bounceCount} 个粒子包撞击到了固体障碍物！它们在障碍物表面 180° 翻转并原路弹回原格点，天然实现宏观速度 u = 0 的无滑移固体边界条件。`
+            : '当粒子包迁移撞击固体障碍物时，会沿相反方向 180° 原路弹回，实现无滑移边界条件（点击任意格点可放置障碍物进行测试）。',
+          formula: 'fᵢ̄(x_f, t + Δt) = fᵢ*(x_f, t)  (cᵢ̄ = -cᵢ)'
+        },
+        '3': {
+          badge: '步骤 4 / 4 · Macroscopic',
+          color: 'bg-amber-500/25 text-amber-200 border-amber-400/50',
+          title: '宏观量统计 (密度与速度)',
+          desc: '将到达每个格点的 9 个新分布函数求和，重新计算该处的宏观密度 ρ（底座高度）与宏观速度矢量 u（悬浮金色粗箭头），完成一个完整时间步！',
+          formula: 'ρ = Σ fᵢ ,   u = (1/ρ) Σ fᵢ cᵢ'
+        }
+      };
+
+      const info = stepsInfo[String(phase)] || stepsInfo['-1'];
+      badge.textContent = info.badge;
+      badge.className = `px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${info.color}`;
+      title.textContent = info.title;
+      desc.textContent = info.desc;
+      formula.textContent = info.formula;
+      mTitle.textContent = info.title;
+      mFormula.textContent = info.formula;
+    }
+
+    function updateProbePanel(sim, cellIdx) {
+      if (!sim) return;
+      const targetIdx = typeof cellIdx === 'number' ? cellIdx : sim.selectedIdx;
+      if (targetIdx < 0 || targetIdx >= sim.nx * sim.ny) return;
+
+      const x = targetIdx % sim.nx;
+      const y = Math.floor(targetIdx / sim.nx);
+      const isSolid = !!sim.solid[targetIdx];
+
+      document.getElementById('probe-coord').textContent = `格点 (${x}, ${y})`;
+      const typeEl = document.getElementById('probe-type');
+      typeEl.textContent = isSolid ? '固体障碍物 (Bounce-back)' : '流体格点';
+      typeEl.className = isSolid ? 'text-slate-300 font-semibold' : 'text-emerald-400 font-semibold';
+
+      document.getElementById('probe-rho').textContent = isSolid ? 'SOLID' : sim.rho[targetIdx].toFixed(3);
+      document.getElementById('probe-ux').textContent = isSolid ? '0.000' : sim.ux[targetIdx].toFixed(3);
+      document.getElementById('probe-uy').textContent = isSolid ? '0.000' : sim.uy[targetIdx].toFixed(3);
+
+      const gridEl = document.getElementById('probe-f-grid');
+      gridEl.innerHTML = '';
+      for (const dir of PROBE_ORDER) {
+        const val = isSolid ? 0 : sim.f[targetIdx * 9 + dir];
+        const ratio = isSolid ? 0 : clamp((val / W[dir]) * 50, 5, 100);
+        const item = document.createElement('div');
+        item.className = 'rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 flex flex-col gap-0.5';
+        item.innerHTML = `
+          <div class="flex justify-between items-center text-[9px] text-slate-400">
+            <span>${DIR_LABELS[dir]}</span>
+          </div>
+          <div class="text-[11px] font-semibold ${isSolid ? 'text-slate-600' : 'text-cyan-200'}">${isSolid ? '--' : val.toFixed(4)}</div>
+          <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-cyan-400 rounded-full" style="width:${ratio}%"></div>
+          </div>
+        `;
+        gridEl.appendChild(item);
+      }
+    }
+
+    function updatePlayButtonUI(sim) {
+      if (!sim) return;
+      const icon = document.getElementById('micro-play-icon');
+      const text = document.getElementById('micro-play-text');
+      if (sim.autoPlay) {
+        icon.textContent = '⏸';
+        text.textContent = '暂停循环';
+      } else {
+        icon.textContent = '▶';
+        text.textContent = '自动循环';
+      }
+    }
+
+    function updateMicroStepUI(sim) {
+      if (!sim) return;
+      document.getElementById('stat-step').textContent = sim.timeStep;
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`step-pill-${i}`);
+        if (i === sim.phase) {
+          el.className = 'step-pill rounded-xl py-1.5 px-1 text-[11px] font-bold border border-cyan-400 bg-cyan-500/25 text-cyan-200 shadow shadow-cyan-500/30 transition-all scale-[1.03]';
+        } else {
+          el.className = 'step-pill rounded-xl py-1.5 px-1 text-[11px] font-medium border border-slate-700/80 bg-slate-900/60 text-slate-400 transition-all';
+        }
+      }
+      if (currentMode === 'micro') {
+        updateEducationCard('micro', sim.phase, sim.bounceEvents.length);
+      }
+    }
+
+    // =========================================================================
+    // 4. 模式一：微观原理演示类（9×5 D2Q9 格子分步可视化）
+    // =========================================================================
+    class MicroLBMScene {
+      constructor(group, nx = 9, ny = 5) {
+        this.group = group;
+        this.nx = nx;
+        this.ny = ny;
+        this.spacing = 2.6;
+        this.tau = 0.80;
+        this.animSpeed = 1.0;
+        this.timeStep = 0;
+
+        // 演化状态机: -1(空闲), 0(碰撞), 1(迁移), 2(反弹), 3(宏观统计)
+        this.phase = -1;
+        this.phaseProgress = 0;
+        this.autoPlay = false;
+
+        this.bounceEvents = [];
+        this.cells = [];
+        this.pickables = [];
+        this.hoveredIdx = -1;
+        this.selectedIdx = 0;
+
+        this.allocateBuffers();
+        this.buildScene();
+        this.resetGrid(false);
+      }
+
+      allocateBuffers() {
+        const N = this.nx * this.ny;
+        this.solid = new Uint8Array(N);
+        this.f = new Float32Array(N * 9);
+        this.fPost = new Float32Array(N * 9);
+        this.fNext = new Float32Array(N * 9);
+        this.rho = new Float32Array(N);
+        this.ux = new Float32Array(N);
+        this.uy = new Float32Array(N);
+        this.prevRho = new Float32Array(N);
+        this.prevUx = new Float32Array(N);
+        this.prevUy = new Float32Array(N);
+        this.selectedIdx = this.idx(Math.min(2, this.nx - 1), Math.floor(this.ny / 2));
+      }
+
+      clearSceneResources() {
+        const geometries = new Set();
+        const materials = new Set();
+        this.group.traverse((obj) => {
+          if (obj.geometry) geometries.add(obj.geometry);
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(m => materials.add(m));
+            } else {
+              materials.add(obj.material);
+            }
+          }
+        });
+        while (this.group.children.length > 0) {
+          this.group.remove(this.group.children[0]);
+        }
+        geometries.forEach(g => g.dispose());
+        materials.forEach(m => m.dispose());
+        this.cells = [];
+        this.pickables = [];
+        this.hoveredIdx = -1;
+      }
+
+      resizeGrid(newNx, newNy, notifyUI = true) {
+        const nx = clamp(Math.round(newNx), 5, 15);
+        const ny = clamp(Math.round(newNy), 3, 9);
+        this.nx = nx;
+        this.ny = ny;
+        this.clearSceneResources();
+        this.allocateBuffers();
+        this.buildScene();
+        this.resetGrid(notifyUI);
+        const badge = document.getElementById('micro-grid-badge');
+        if (badge) badge.textContent = `${nx}×${ny} 离散格点`;
+        const inNx = document.getElementById('input-micro-nx');
+        const inNy = document.getElementById('input-micro-ny');
+        if (inNx) inNx.value = nx;
+        if (inNy) inNy.value = ny;
+      }
+
+      idx(x, y) {
+        return y * this.nx + x;
+      }
+
+      gridToWorld(x, y) {
+        const wx = (x - (this.nx - 1) / 2) * this.spacing;
+        const wz = ((this.ny - 1) / 2 - y) * this.spacing;
+        return new THREE.Vector3(wx, 0, wz);
+      }
+
+      buildScene() {
+        const gridW = this.nx * this.spacing;
+        const gridH = this.ny * this.spacing;
+
+        // 底部科技基板
+        const floorGeo = new THREE.PlaneGeometry(gridW + 1.6, gridH + 1.6);
+        const floorMat = new THREE.MeshStandardMaterial({
+          color: 0x071021,
+          roughness: 0.85,
+          metalness: 0.25
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.34;
+        this.group.add(floor);
+
+        // 相邻格点网格连线
+        const linePositions = [];
+        for (let y = 0; y < this.ny; y++) {
+          for (let x = 0; x < this.nx; x++) {
+            const p = this.gridToWorld(x, y);
+            if (x < this.nx - 1) {
+              const p2 = this.gridToWorld(x + 1, y);
+              linePositions.push(p.x, -0.18, p.z, p2.x, -0.18, p2.z);
+            }
+            if (y < this.ny - 1) {
+              const p2 = this.gridToWorld(x, y + 1);
+              linePositions.push(p.x, -0.18, p.z, p2.x, -0.18, p2.z);
+            }
+          }
+        }
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.55 });
+        this.group.add(new THREE.LineSegments(lineGeo, lineMat));
+
+        // 共享几何体
+        const baseTileGeo = new THREE.BoxGeometry(1.45, 0.16, 1.45);
+        const ringGeo = new THREE.RingGeometry(0.62, 0.72, 28);
+        const solidGeo = new THREE.BoxGeometry(1.78, 1.58, 1.78);
+        const solidEdgesGeo = new THREE.EdgesGeometry(solidGeo);
+        const centerSphereGeo = new THREE.SphereGeometry(0.24, 18, 18);
+
+        const shaftGeo = new THREE.CylinderGeometry(0.038, 0.038, 1.0, 8);
+        shaftGeo.translate(0, 0.5, 0);
+        const headGeo = new THREE.ConeGeometry(0.105, 0.24, 10);
+        headGeo.translate(0, 1.05, 0);
+
+        const macroShaftGeo = new THREE.CylinderGeometry(0.068, 0.068, 1.0, 10);
+        macroShaftGeo.translate(0, 0.5, 0);
+        const macroHeadGeo = new THREE.ConeGeometry(0.175, 0.34, 12);
+        macroHeadGeo.translate(0, 1.08, 0);
+
+        const pickGeo = new THREE.BoxGeometry(this.spacing * 0.92, 0.95, this.spacing * 0.92);
+        const pickMat = new THREE.MeshBasicMaterial({ visible: false });
+
+        for (let y = 0; y < this.ny; y++) {
+          for (let x = 0; x < this.nx; x++) {
+            const index = this.idx(x, y);
+            const pos = this.gridToWorld(x, y);
+            const cellRoot = new THREE.Group();
+            cellRoot.position.copy(pos);
+            this.group.add(cellRoot);
+
+            // 不可见射线拾取盒
+            const picker = new THREE.Mesh(pickGeo, pickMat);
+            picker.position.y = 0.28;
+            picker.userData = { cellIdx: index, x, y };
+            cellRoot.add(picker);
+            this.pickables.push(picker);
+
+            // 3D 密度底座块（高度与颜色反映 ρ）
+            const baseMat = new THREE.MeshStandardMaterial({
+              color: 0x0ea5e9,
+              emissive: 0x0369a1,
+              emissiveIntensity: 0.35,
+              roughness: 0.35,
+              metalness: 0.5
+            });
+            const baseMesh = new THREE.Mesh(baseTileGeo, baseMat);
+            baseMesh.position.y = -0.18;
+            cellRoot.add(baseMesh);
+
+            // 悬停/碰撞光环
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0x38bdf8,
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.16
+            });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.rotation.x = -Math.PI / 2;
+            ringMesh.position.y = -0.12;
+            cellRoot.add(ringMesh);
+
+            // 深色金属板岩固体障碍物块
+            const solidGroup = new THREE.Group();
+            const solidMat = new THREE.MeshStandardMaterial({
+              color: 0x1e293b,
+              emissive: 0x334155,
+              emissiveIntensity: 0.28,
+              metalness: 0.85,
+              roughness: 0.24
+            });
+            const solidBox = new THREE.Mesh(solidGeo, solidMat);
+            solidBox.position.y = 0.60;
+            const solidWire = new THREE.LineSegments(
+              solidEdgesGeo,
+              new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.85 })
+            );
+            solidWire.position.y = 0.60;
+            solidGroup.add(solidBox, solidWire);
+            solidGroup.visible = false;
+            cellRoot.add(solidGroup);
+
+            // 流体粒子可视化容器
+            const fluidGroup = new THREE.Group();
+            cellRoot.add(fluidGroup);
+
+            // c0 中心静止粒子球
+            const c0Mat = new THREE.MeshStandardMaterial({
+              color: 0x38bdf8,
+              emissive: 0x0284c7,
+              emissiveIntensity: 0.6,
+              roughness: 0.2
+            });
+            const c0Mesh = new THREE.Mesh(centerSphereGeo, c0Mat);
+            c0Mesh.position.y = 0.18;
+            fluidGroup.add(c0Mesh);
+
+            // c1 ~ c8 8个离散速度方向粒子包
+            const arrows = [null];
+            for (let i = 1; i < 9; i++) {
+              const packetGroup = new THREE.Group();
+              packetGroup.position.set(0, 0.18, 0);
+
+              const dirVec = new THREE.Vector3(CX[i], 0, -CY[i]).normalize();
+              const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec);
+
+              const arrowVisual = new THREE.Group();
+              arrowVisual.quaternion.copy(quat);
+
+              const mat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                emissive: 0x0ea5e9,
+                emissiveIntensity: 0.55,
+                roughness: 0.25,
+                metalness: 0.3,
+                transparent: true,
+                opacity: 0.95
+              });
+              const shaft = new THREE.Mesh(shaftGeo, mat);
+              const head = new THREE.Mesh(headGeo, mat);
+              arrowVisual.add(shaft, head);
+              packetGroup.add(arrowVisual);
+
+              fluidGroup.add(packetGroup);
+              arrows.push({
+                packetGroup,
+                arrowVisual,
+                mat,
+                baseQuat: quat.clone(),
+                oppQuat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec.clone().negate()),
+                dirVec
+              });
+            }
+
+            // 悬浮金色宏观速度箭头 u
+            const macroArrowGroup = new THREE.Group();
+            macroArrowGroup.position.set(0, 0.85, 0);
+            const macroMat = new THREE.MeshStandardMaterial({
+              color: 0xfbbf24,
+              emissive: 0xd97706,
+              emissiveIntensity: 0.78,
+              roughness: 0.2,
+              metalness: 0.35
+            });
+            const mShaft = new THREE.Mesh(macroShaftGeo, macroMat);
+            const mHead = new THREE.Mesh(macroHeadGeo, macroMat);
+            macroArrowGroup.add(mShaft, mHead);
+            macroArrowGroup.visible = false;
+            fluidGroup.add(macroArrowGroup);
+
+            this.cells.push({
+              x, y, index,
+              root: cellRoot,
+              baseMesh, baseMat,
+              ringMesh, ringMat,
+              solidGroup, solidMat,
+              fluidGroup,
+              c0Mesh, c0Mat,
+              arrows,
+              macroArrowGroup, macroMat
+            });
+          }
+        }
+      }
+
+      resetGrid(notifyUI = true) {
+        this.autoPlay = false;
+        this.phase = -1;
+        this.phaseProgress = 0;
+        this.timeStep = 0;
+        this.bounceEvents = [];
+        this.solid.fill(0);
+
+        // 默认在中右位置放置一个固体障碍物块，便于直观演示碰撞反弹
+        const obsX = Math.min(this.nx - 2, Math.max(2, Math.round(this.nx * 0.56)));
+        const obsY = Math.floor(this.ny / 2);
+        this.solid[this.idx(obsX, obsY)] = 1;
+
+        for (let y = 0; y < this.ny; y++) {
+          for (let x = 0; x < this.nx; x++) {
+            const idx = this.idx(x, y);
+            this.rho[idx] = 1.0;
+            this.ux[idx] = 0.0;
+            this.uy[idx] = 0.0;
+            this.prevRho[idx] = 1.0;
+            this.prevUx[idx] = 0.0;
+            this.prevUy[idx] = 0.0;
+            for (let i = 0; i < 9; i++) {
+              const feq = calcFeq(i, 1.0, 0.0, 0.0);
+              this.f[idx * 9 + i] = feq;
+              this.fPost[idx * 9 + i] = feq;
+              this.fNext[idx * 9 + i] = feq;
+            }
+          }
+        }
+
+        this.injectPulse(false, false);
+        this.syncVisualsFromState(this.f, this.rho, this.ux, this.uy);
+
+        if (notifyUI) {
+          updateMicroStepUI(this);
+          updateProbePanel(this, this.selectedIdx);
+          updatePlayButtonUI(this);
+        }
+      }
+
+      injectPulse(resetPhase = true, notifyUI = true) {
+        if (resetPhase && this.phase !== -1) {
+          this.finishCurrentStepImmediate(false);
+        }
+        const cx = Math.min(this.nx - 2, Math.max(1, Math.round(this.nx * 0.22)));
+        const cy = Math.floor(this.ny / 2);
+        const targets = [
+          { x: cx, y: cy, drho: 0.28, dux: 0.22 },
+          { x: cx, y: Math.max(0, cy - 1), drho: 0.12, dux: 0.14 },
+          { x: cx, y: Math.min(this.ny - 1, cy + 1), drho: 0.12, dux: 0.14 },
+          { x: Math.max(0, cx - 1), y: cy, drho: 0.10, dux: 0.16 }
+        ];
+        for (const t of targets) {
+          const idx = this.idx(t.x, t.y);
+          if (this.solid[idx]) continue;
+          const newRho = clamp(this.rho[idx] + t.drho, 0.6, 1.8);
+          const newUx = clamp(this.ux[idx] + t.dux, -0.32, 0.32);
+          const newUy = this.uy[idx];
+          this.rho[idx] = newRho;
+          this.ux[idx] = newUx;
+          this.uy[idx] = newUy;
+          for (let i = 0; i < 9; i++) {
+            this.f[idx * 9 + i] = calcFeq(i, newRho, newUx, newUy);
+          }
+        }
+        this.syncVisualsFromState(this.f, this.rho, this.ux, this.uy);
+        if (notifyUI) {
+          updateProbePanel(this, this.selectedIdx);
+        }
+      }
+
+      toggleSolid(cellIdx) {
+        if (this.phase !== -1) {
+          this.finishCurrentStepImmediate(false);
+        }
+        this.solid[cellIdx] = this.solid[cellIdx] ? 0 : 1;
+        if (!this.solid[cellIdx]) {
+          this.rho[cellIdx] = 1.0;
+          this.ux[cellIdx] = 0.0;
+          this.uy[cellIdx] = 0.0;
+          for (let i = 0; i < 9; i++) {
+            this.f[cellIdx * 9 + i] = calcFeq(i, 1.0, 0.0, 0.0);
+          }
+        }
+        this.selectedIdx = cellIdx;
+        this.syncVisualsFromState(this.f, this.rho, this.ux, this.uy);
+        updateProbePanel(this, cellIdx);
+      }
+
+      triggerSingleStep() {
+        if (this.phase === -1) {
+          this.startPhase(0);
+        } else {
+          this.completeCurrentPhase(true);
+          if (this.phase < 3) {
+            this.startPhase(this.phase + 1);
+          } else {
+            this.phase = -1;
+            updateMicroStepUI(this);
+          }
+        }
+      }
+
+      finishCurrentStepImmediate(notifyUI = true) {
+        while (this.phase !== -1) {
+          this.completeCurrentPhase(false);
+          if (this.phase < 3) {
+            this.startPhase(this.phase + 1, false);
+          } else {
+            this.phase = -1;
+          }
+        }
+        if (notifyUI) {
+          updateMicroStepUI(this);
+          updateProbePanel(this, this.selectedIdx);
+        }
+      }
+
+      startPhase(p, notifyUI = true) {
+        this.phase = p;
+        this.phaseProgress = 0;
+
+        const N = this.nx * this.ny;
+        if (p === 0) {
+          // 1. 碰撞 (BGK Collision)
+          const invTau = 1.0 / this.tau;
+          for (let idx = 0; idx < N; idx++) {
+            if (this.solid[idx]) continue;
+            const rho = this.rho[idx];
+            const ux = this.ux[idx];
+            const uy = this.uy[idx];
+            for (let i = 0; i < 9; i++) {
+              const fi = this.f[idx * 9 + i];
+              const feq = calcFeq(i, rho, ux, uy);
+              this.fPost[idx * 9 + i] = Math.max(0.0005, fi - invTau * (fi - feq));
+            }
+          }
+        } else if (p === 1) {
+          // 2. 迁移 (Streaming)
+          this.fNext.fill(0);
+          this.bounceEvents = [];
+          for (let y = 0; y < this.ny; y++) {
+            for (let x = 0; x < this.nx; x++) {
+              const idx = this.idx(x, y);
+              if (this.solid[idx]) continue;
+              this.fNext[idx * 9 + 0] = this.fPost[idx * 9 + 0];
+
+              for (let i = 1; i < 9; i++) {
+                const tx = (x + CX[i] + this.nx) % this.nx;
+                const ty = (y + CY[i] + this.ny) % this.ny;
+                const tIdx = this.idx(tx, ty);
+                const val = this.fPost[idx * 9 + i];
+
+                if (this.solid[tIdx]) {
+                  this.bounceEvents.push({ idx, dir: i, targetIdx: tIdx, val });
+                } else {
+                  this.fNext[tIdx * 9 + i] = val;
+                }
+              }
+            }
+          }
+        } else if (p === 2) {
+          // 3. 边界反弹 (Bounce-Back)
+          for (const ev of this.bounceEvents) {
+            this.fNext[ev.idx * 9 + OPP[ev.dir]] = ev.val;
+          }
+        } else if (p === 3) {
+          // 4. 宏观量统计 (Macroscopic Update)
+          this.prevRho.set(this.rho);
+          this.prevUx.set(this.ux);
+          this.prevUy.set(this.uy);
+          this.f.set(this.fNext);
+
+          for (let idx = 0; idx < N; idx++) {
+            if (this.solid[idx]) {
+              this.rho[idx] = 1.0;
+              this.ux[idx] = 0.0;
+              this.uy[idx] = 0.0;
+              continue;
+            }
+            let r = 0, mx = 0, my = 0;
+            for (let i = 0; i < 9; i++) {
+              const v = this.f[idx * 9 + i];
+              r += v;
+              mx += v * CX[i];
+              my += v * CY[i];
+            }
+            r = clamp(r, 0.3, 2.5);
+            this.rho[idx] = r;
+            this.ux[idx] = clamp(mx / r, -0.35, 0.35);
+            this.uy[idx] = clamp(my / r, -0.35, 0.35);
+          }
+          this.timeStep++;
+        }
+
+        if (notifyUI) {
+          updateMicroStepUI(this);
+        }
+      }
+
+      completeCurrentPhase(notifyUI = true) {
+        this.phaseProgress = 1.0;
+        this.applyPhaseAnimation(1.0);
+        if (this.phase === 3) {
+          this.syncVisualsFromState(this.f, this.rho, this.ux, this.uy);
+          if (notifyUI) {
+            updateProbePanel(this, this.selectedIdx);
+          }
+        }
+      }
+
+      styleArrowByValue(arrowObj, val, dirIdx, isBounceHighlight = false) {
+        const ratio = val / W[dirIdx];
+        const len = clamp(0.28 + ratio * 0.42, 0.14, 1.38);
+        const thickness = clamp(0.75 + ratio * 0.35, 0.55, 1.65);
+        arrowObj.arrowVisual.scale.set(thickness, len, thickness);
+
+        if (isBounceHighlight) {
+          arrowObj.mat.color.setHex(0xf43f5e);
+          arrowObj.mat.emissive.setHex(0xe11d48);
+          arrowObj.mat.emissiveIntensity = 1.15;
+          return;
+        }
+
+        const t = clamp((ratio - 0.55) / 1.1, 0, 1);
+        const col = new THREE.Color();
+        if (t < 0.5) {
+          col.lerpColors(new THREE.Color(0x1d4ed8), new THREE.Color(0x38bdf8), t * 2);
+        } else {
+          col.lerpColors(new THREE.Color(0x38bdf8), new THREE.Color(0xfbbf24), (t - 0.5) * 2);
+        }
+        arrowObj.mat.color.copy(col);
+        arrowObj.mat.emissive.copy(col);
+        arrowObj.mat.emissiveIntensity = 0.35 + t * 0.65;
+      }
+
+      styleMacroVisual(cell, rho, ux, uy) {
+        const drho = clamp((rho - 0.85) / 0.45, 0, 1);
+        const hScale = clamp(0.65 + (rho - 0.8) * 3.1, 0.35, 2.7);
+        cell.baseMesh.scale.set(1, hScale, 1);
+        cell.baseMesh.position.y = -0.24 + 0.08 * hScale;
+
+        const baseCol = new THREE.Color().lerpColors(new THREE.Color(0x0c4a6e), new THREE.Color(0x22d3ee), drho);
+        cell.baseMat.color.copy(baseCol);
+        cell.baseMat.emissive.copy(baseCol);
+        cell.baseMat.emissiveIntensity = 0.2 + drho * 0.55;
+
+        const speed = Math.hypot(ux, uy);
+        if (speed > 0.008) {
+          cell.macroArrowGroup.visible = true;
+          const dir = new THREE.Vector3(ux, 0, -uy).normalize();
+          cell.macroArrowGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          const mLen = clamp(speed * 6.2, 0.25, 1.85);
+          cell.macroArrowGroup.scale.set(1, mLen, 1);
+        } else {
+          cell.macroArrowGroup.visible = false;
+        }
+      }
+
+      syncVisualsFromState(fArr, rhoArr, uxArr, uyArr) {
+        const N = this.nx * this.ny;
+        for (let idx = 0; idx < N; idx++) {
+          const cell = this.cells[idx];
+          const isSolid = !!this.solid[idx];
+          cell.solidGroup.visible = isSolid;
+          cell.fluidGroup.visible = !isSolid;
+          cell.solidMat.emissiveIntensity = 0.28;
+
+          if (isSolid) {
+            cell.baseMesh.scale.set(1, 0.8, 1);
+            cell.baseMesh.position.y = -0.18;
+            cell.baseMat.color.setHex(0x1e293b);
+            cell.baseMat.emissiveIntensity = 0.12;
+            continue;
+          }
+
+          const c0Ratio = fArr[idx * 9 + 0] / W[0];
+          const s0 = clamp(0.65 + c0Ratio * 0.45, 0.45, 1.5);
+          cell.c0Mesh.scale.setScalar(s0);
+
+          for (let i = 1; i < 9; i++) {
+            const arr = cell.arrows[i];
+            arr.packetGroup.position.set(0, 0.18, 0);
+            arr.arrowVisual.quaternion.copy(arr.baseQuat);
+            arr.mat.opacity = 0.95;
+            this.styleArrowByValue(arr, fArr[idx * 9 + i], i, false);
+          }
+
+          this.styleMacroVisual(cell, rhoArr[idx], uxArr[idx], uyArr[idx]);
+        }
+      }
+
+      applyPhaseAnimation(t) {
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const N = this.nx * this.ny;
+
+        if (this.phase === 0) {
+          const pulse = Math.sin(t * Math.PI);
+          for (let idx = 0; idx < N; idx++) {
+            const cell = this.cells[idx];
+            if (this.solid[idx]) continue;
+
+            cell.ringMat.color.setHex(0x38bdf8);
+            cell.ringMat.opacity = 0.2 + pulse * 0.65;
+            cell.ringMesh.scale.setScalar(1.0 + pulse * 0.32);
+
+            const f0 = THREE.MathUtils.lerp(this.f[idx * 9], this.fPost[idx * 9], ease);
+            cell.c0Mesh.scale.setScalar(clamp(0.65 + (f0 / W[0]) * 0.45, 0.45, 1.5));
+
+            for (let i = 1; i < 9; i++) {
+              const val = THREE.MathUtils.lerp(this.f[idx * 9 + i], this.fPost[idx * 9 + i], ease);
+              const arr = cell.arrows[i];
+              arr.packetGroup.position.set(0, 0.18, 0);
+              arr.arrowVisual.quaternion.copy(arr.baseQuat);
+              this.styleArrowByValue(arr, val, i, false);
+            }
+          }
+        } else if (this.phase === 1) {
+          for (let y = 0; y < this.ny; y++) {
+            for (let x = 0; x < this.nx; x++) {
+              const idx = this.idx(x, y);
+              const cell = this.cells[idx];
+              if (this.solid[idx]) continue;
+
+              cell.ringMat.opacity = 0.16;
+              cell.ringMesh.scale.setScalar(1.0);
+
+              for (let i = 1; i < 9; i++) {
+                const arr = cell.arrows[i];
+                const nxRaw = x + CX[i];
+                const nyRaw = y + CY[i];
+                const isWrap = (nxRaw < 0 || nxRaw >= this.nx || nyRaw < 0 || nyRaw >= this.ny);
+                const tx = (nxRaw + this.nx) % this.nx;
+                const ty = (nyRaw + this.ny) % this.ny;
+                const tIdx = this.idx(tx, ty);
+                const hitsSolid = !!this.solid[tIdx];
+
+                const distFactor = hitsSolid ? 0.52 : 1.0;
+                const dx = CX[i] * this.spacing * distFactor * ease;
+                const dz = -CY[i] * this.spacing * distFactor * ease;
+                arr.packetGroup.position.set(dx, 0.18 + Math.sin(t * Math.PI) * 0.18, dz);
+                arr.arrowVisual.quaternion.copy(arr.baseQuat);
+
+                arr.mat.opacity = isWrap ? Math.max(0.08, 1.0 - ease * 0.9) : 0.95;
+                this.styleArrowByValue(arr, this.fPost[idx * 9 + i], i, hitsSolid && t > 0.35);
+              }
+            }
+          }
+        } else if (this.phase === 2) {
+          const flash = Math.sin(t * Math.PI);
+          for (let idx = 0; idx < N; idx++) {
+            if (this.solid[idx]) {
+              this.cells[idx].solidMat.emissiveIntensity = 0.28 + flash * 0.85;
+            }
+          }
+
+          for (const ev of this.bounceEvents) {
+            const cell = this.cells[ev.idx];
+            const arr = cell.arrows[ev.dir];
+            const startX = CX[ev.dir] * this.spacing * 0.52;
+            const startZ = -CY[ev.dir] * this.spacing * 0.52;
+
+            if (t < 0.35) {
+              const rotT = t / 0.35;
+              arr.packetGroup.position.set(startX, 0.26, startZ);
+              arr.arrowVisual.quaternion.slerpQuaternions(arr.baseQuat, arr.oppQuat, rotT);
+            } else {
+              const backT = (t - 0.35) / 0.65;
+              const backEase = 1 - Math.pow(1 - backT, 2);
+              arr.packetGroup.position.set(
+                startX * (1 - backEase),
+                0.18 + Math.sin(backT * Math.PI) * 0.25,
+                startZ * (1 - backEase)
+              );
+              arr.arrowVisual.quaternion.copy(arr.oppQuat);
+            }
+            this.styleArrowByValue(arr, ev.val, ev.dir, true);
+          }
+        } else if (this.phase === 3) {
+          const pulse = Math.sin(t * Math.PI);
+          for (let idx = 0; idx < N; idx++) {
+            const cell = this.cells[idx];
+            if (this.solid[idx]) {
+              cell.solidMat.emissiveIntensity = 0.28;
+              continue;
+            }
+
+            const c0Ratio = this.f[idx * 9 + 0] / W[0];
+            cell.c0Mesh.scale.setScalar(clamp(0.65 + c0Ratio * 0.45, 0.45, 1.5));
+            for (let i = 1; i < 9; i++) {
+              const arr = cell.arrows[i];
+              arr.packetGroup.position.set(0, 0.18, 0);
+              arr.arrowVisual.quaternion.copy(arr.baseQuat);
+              arr.mat.opacity = 0.95;
+              this.styleArrowByValue(arr, this.f[idx * 9 + i], i, false);
+            }
+
+            const r = THREE.MathUtils.lerp(this.prevRho[idx], this.rho[idx], ease);
+            const ux = THREE.MathUtils.lerp(this.prevUx[idx], this.ux[idx], ease);
+            const uy = THREE.MathUtils.lerp(this.prevUy[idx], this.uy[idx], ease);
+            this.styleMacroVisual(cell, r, ux, uy);
+
+            cell.macroMat.emissiveIntensity = 0.78 + pulse * 0.9;
+            cell.ringMat.color.setHex(0xfbbf24);
+            cell.ringMat.opacity = 0.18 + pulse * 0.5;
+          }
+        }
+      }
+
+      update(dt) {
+        for (let i = 0; i < this.cells.length; i++) {
+          const cell = this.cells[i];
+          if (i === this.hoveredIdx || i === this.selectedIdx) {
+            if (this.phase === -1) {
+              cell.ringMat.color.setHex(i === this.hoveredIdx ? 0xffffff : 0xfbbf24);
+              cell.ringMat.opacity = 0.85;
+              cell.ringMesh.scale.setScalar(1.16);
+            }
+          } else if (this.phase === -1) {
+            cell.ringMat.color.setHex(0x38bdf8);
+            cell.ringMat.opacity = 0.15;
+            cell.ringMesh.scale.setScalar(1.0);
+          }
+        }
+
+        if (this.phase === -1) {
+          if (this.autoPlay) {
+            this.startPhase(0);
+          }
+          return;
+        }
+
+        const durations = [1.05, 1.35, this.bounceEvents.length > 0 ? 1.25 : 0.45, 0.95];
+        const dur = durations[this.phase] / this.animSpeed;
+        this.phaseProgress += dt / dur;
+
+        if (this.phaseProgress >= 1.0) {
+          this.completeCurrentPhase(true);
+          if (this.autoPlay) {
+            const nextP = (this.phase + 1) % 4;
+            this.startPhase(nextP);
+          } else if (this.phase === 3) {
+            this.phase = -1;
+            updateMicroStepUI(this);
+          } else {
+            this.phaseProgress = 1.0;
+          }
+        } else {
+          this.applyPhaseAnimation(this.phaseProgress);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. 模式二：宏观实时风洞类（GPU WebGL2 MRT 并行求解 + CPU 回退 + 自定义格点）
+    // =========================================================================
+    function detectGpuLBMCapability(webglRenderer) {
+      if (!webglRenderer.capabilities.isWebGL2) {
+        return { supported: false, texType: null, label: '不支持 WebGL2' };
+      }
+      const gl = webglRenderer.getContext();
+      const maxDrawBuffers = gl.getParameter(gl.MAX_DRAW_BUFFERS);
+      if (maxDrawBuffers < 3) {
+        return { supported: false, texType: null, label: 'MRT 通道不足' };
+      }
+      if (webglRenderer.extensions.get('EXT_color_buffer_float')) {
+        return { supported: true, texType: THREE.FloatType, label: 'WebGL2 Float32' };
+      }
+      if (webglRenderer.extensions.get('EXT_color_buffer_half_float')) {
+        return { supported: true, texType: THREE.HalfFloatType, label: 'WebGL2 Float16' };
+      }
+      return { supported: false, texType: null, label: '无浮点 FBO 扩展' };
+    }
+
+    const GPU_CAP = detectGpuLBMCapability(renderer);
+
+    const QUAD_VERT_GLSL3 = `
+      precision highp float;
+      in vec3 position;
+      void main() {
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `;
+
+    const LBM_INIT_FRAG_GLSL3 = `
+      precision highp float;
+      precision highp int;
+      precision highp sampler2D;
+
+      uniform sampler2D uSolidTex;
+      uniform vec2 uGridSize;
+      uniform float uU0;
+
+      layout(location = 0) out vec4 outF0123;
+      layout(location = 1) out vec4 outF4567;
+      layout(location = 2) out vec4 outF8Macro;
+
+      float calcFeq(float w, float cx, float cy, float rho, float ux, float uy, float u2) {
+        float cu = cx * ux + cy * uy;
+        return w * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * u2);
+      }
+
+      void main() {
+        ivec2 c = ivec2(gl_FragCoord.xy);
+        bool isSolid = texelFetch(uSolidTex, c, 0).r > 0.5;
+        float rho = 1.0;
+        float ux = isSolid ? 0.0 : uU0;
+        float uy = isSolid ? 0.0 : 0.002 * sin((float(c.x) / uGridSize.x) * 12.5663706);
+        float u2 = ux * ux + uy * uy;
+
+        const float W0 = 4.0 / 9.0;
+        const float W1 = 1.0 / 9.0;
+        const float W2 = 1.0 / 36.0;
+
+        float f0 = calcFeq(W0,  0.0,  0.0, rho, ux, uy, u2);
+        float f1 = calcFeq(W1,  1.0,  0.0, rho, ux, uy, u2);
+        float f2 = calcFeq(W1,  0.0,  1.0, rho, ux, uy, u2);
+        float f3 = calcFeq(W1, -1.0,  0.0, rho, ux, uy, u2);
+        float f4 = calcFeq(W1,  0.0, -1.0, rho, ux, uy, u2);
+        float f5 = calcFeq(W2,  1.0,  1.0, rho, ux, uy, u2);
+        float f6 = calcFeq(W2, -1.0,  1.0, rho, ux, uy, u2);
+        float f7 = calcFeq(W2, -1.0, -1.0, rho, ux, uy, u2);
+        float f8 = calcFeq(W2,  1.0, -1.0, rho, ux, uy, u2);
+
+        outF0123 = vec4(f0, f1, f2, f3);
+        outF4567 = vec4(f4, f5, f6, f7);
+        outF8Macro = vec4(f8, rho, ux, uy);
+      }
+    `;
+
+    // GPU D2Q9 Pull-Scheme LBM: 单 Pass 完成 迁移 + 边界反弹 + 宏观统计 + BGK 碰撞
+    const LBM_STEP_FRAG_GLSL3 = `
+      precision highp float;
+      precision highp int;
+      precision highp sampler2D;
+
+      uniform sampler2D uF0123;
+      uniform sampler2D uF4567;
+      uniform sampler2D uF8Macro;
+      uniform sampler2D uSolidTex;
+      uniform vec2 uGridSize;
+      uniform float uTau;
+      uniform float uU0;
+
+      layout(location = 0) out vec4 outF0123;
+      layout(location = 1) out vec4 outF4567;
+      layout(location = 2) out vec4 outF8Macro;
+
+      const float W0 = 4.0 / 9.0;
+      const float W1 = 1.0 / 9.0;
+      const float W2 = 1.0 / 36.0;
+
+      bool isSolidCell(ivec2 p) {
+        return texelFetch(uSolidTex, p, 0).r > 0.5;
+      }
+
+      float calcFeq(float w, float cx, float cy, float rho, float ux, float uy, float u2) {
+        float cu = cx * ux + cy * uy;
+        return w * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * u2);
+      }
+
+      void writeEquilibrium(float rho, float ux, float uy) {
+        float u2 = ux * ux + uy * uy;
+        outF0123 = vec4(
+          calcFeq(W0,  0.0,  0.0, rho, ux, uy, u2),
+          calcFeq(W1,  1.0,  0.0, rho, ux, uy, u2),
+          calcFeq(W1,  0.0,  1.0, rho, ux, uy, u2),
+          calcFeq(W1, -1.0,  0.0, rho, ux, uy, u2)
+        );
+        outF4567 = vec4(
+          calcFeq(W1,  0.0, -1.0, rho, ux, uy, u2),
+          calcFeq(W2,  1.0,  1.0, rho, ux, uy, u2),
+          calcFeq(W2, -1.0,  1.0, rho, ux, uy, u2),
+          calcFeq(W2, -1.0, -1.0, rho, ux, uy, u2)
+        );
+        outF8Macro = vec4(
+          calcFeq(W2,  1.0, -1.0, rho, ux, uy, u2),
+          rho, ux, uy
+        );
+      }
+
+      void main() {
+        ivec2 c = ivec2(gl_FragCoord.xy);
+        int nx = int(uGridSize.x);
+        int ny = int(uGridSize.y);
+
+        // 固体格点：存储静止平衡态，便于用户擦除障碍物时无缝恢复为流体
+        if (isSolidCell(c)) {
+          writeEquilibrium(1.0, 0.0, 0.0);
+          return;
+        }
+
+        // 1. 左入口速度边界
+        if (c.x == 0) {
+          writeEquilibrium(1.0, uU0, 0.0);
+          return;
+        }
+
+        // 2. 右出口零梯度自由出流边界
+        if (c.x == nx - 1) {
+          ivec2 prevC = ivec2(nx - 2, c.y);
+          if (isSolidCell(prevC)) {
+            writeEquilibrium(1.0, 0.0, 0.0);
+          } else {
+            outF0123 = texelFetch(uF0123, prevC, 0);
+            outF4567 = texelFetch(uF4567, prevC, 0);
+            outF8Macro = texelFetch(uF8Macro, prevC, 0);
+          }
+          return;
+        }
+
+        // 3. 拉取式迁移 (Pull Streaming) + 半步无滑移反弹 (Bounce-Back)
+        vec4 s0123 = texelFetch(uF0123, c, 0);
+        vec4 s4567 = texelFetch(uF4567, c, 0);
+        float s8   = texelFetch(uF8Macro, c, 0).x;
+
+        int yUp = (c.y + 1) % ny;
+        int yDn = (c.y - 1 + ny) % ny;
+
+        ivec2 src1 = ivec2(c.x - 1, c.y);
+        ivec2 src2 = ivec2(c.x,     yDn);
+        ivec2 src3 = ivec2(c.x + 1, c.y);
+        ivec2 src4 = ivec2(c.x,     yUp);
+        ivec2 src5 = ivec2(c.x - 1, yDn);
+        ivec2 src6 = ivec2(c.x + 1, yDn);
+        ivec2 src7 = ivec2(c.x + 1, yUp);
+        ivec2 src8 = ivec2(c.x - 1, yUp);
+
+        float f0 = s0123.x;
+        float f1 = isSolidCell(src1) ? s0123.w : texelFetch(uF0123, src1, 0).y;
+        float f2 = isSolidCell(src2) ? s4567.x : texelFetch(uF0123, src2, 0).z;
+        float f3 = isSolidCell(src3) ? s0123.y : texelFetch(uF0123, src3, 0).w;
+        float f4 = isSolidCell(src4) ? s0123.z : texelFetch(uF4567, src4, 0).x;
+        float f5 = isSolidCell(src5) ? s4567.w : texelFetch(uF4567, src5, 0).y;
+        float f6 = isSolidCell(src6) ? s8      : texelFetch(uF4567, src6, 0).z;
+        float f7 = isSolidCell(src7) ? s4567.y : texelFetch(uF4567, src7, 0).w;
+        float f8 = isSolidCell(src8) ? s4567.z : texelFetch(uF8Macro, src8, 0).x;
+
+        // 4. 宏观密度与速度计算及数值稳定钳位
+        float rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
+        if (isnan(rho) || isinf(rho) || rho <= 0.05) {
+          writeEquilibrium(1.0, uU0, 0.0);
+          return;
+        }
+        float ux = (f1 - f3 + f5 - f6 - f7 + f8) / rho;
+        float uy = (f2 - f4 + f5 + f6 - f7 - f8) / rho;
+
+        float u2 = ux * ux + uy * uy;
+        if (u2 > 0.1225) {
+          float s = 0.35 / sqrt(u2);
+          ux *= s;
+          uy *= s;
+          u2 = 0.1225;
+        }
+        rho = clamp(rho, 0.5, 2.0);
+
+        // 5. BGK 单弛豫碰撞
+        float invTau = 1.0 / uTau;
+        float fp0 = f0 - invTau * (f0 - calcFeq(W0,  0.0,  0.0, rho, ux, uy, u2));
+        float fp1 = f1 - invTau * (f1 - calcFeq(W1,  1.0,  0.0, rho, ux, uy, u2));
+        float fp2 = f2 - invTau * (f2 - calcFeq(W1,  0.0,  1.0, rho, ux, uy, u2));
+        float fp3 = f3 - invTau * (f3 - calcFeq(W1, -1.0,  0.0, rho, ux, uy, u2));
+        float fp4 = f4 - invTau * (f4 - calcFeq(W1,  0.0, -1.0, rho, ux, uy, u2));
+        float fp5 = f5 - invTau * (f5 - calcFeq(W2,  1.0,  1.0, rho, ux, uy, u2));
+        float fp6 = f6 - invTau * (f6 - calcFeq(W2, -1.0,  1.0, rho, ux, uy, u2));
+        float fp7 = f7 - invTau * (f7 - calcFeq(W2, -1.0, -1.0, rho, ux, uy, u2));
+        float fp8 = f8 - invTau * (f8 - calcFeq(W2,  1.0, -1.0, rho, ux, uy, u2));
+
+        outF0123 = vec4(fp0, fp1, fp2, fp3);
+        outF4567 = vec4(fp4, fp5, fp6, fp7);
+        outF8Macro = vec4(fp8, rho, ux, uy);
+      }
+    `;
+
+    const TRACER_INIT_FRAG_GLSL3 = `
+      precision highp float;
+      uniform float uSeed;
+      layout(location = 0) out vec4 outTracer;
+
+      float hash12(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      void main() {
+        vec2 id = gl_FragCoord.xy;
+        float px = 0.01 + 0.98 * hash12(id + uSeed * 17.3);
+        float py = 0.02 + 0.96 * hash12(id + vec2(41.7, 93.1) + uSeed * 29.1);
+        outTracer = vec4(px, py, hash12(id + 7.1), 1.0);
+      }
+    `;
+
+    const TRACER_STEP_FRAG_GLSL3 = `
+      precision highp float;
+      precision highp int;
+      precision highp sampler2D;
+
+      uniform sampler2D uTracerTex;
+      uniform sampler2D uMacroTex;
+      uniform sampler2D uSolidTex;
+      uniform vec2 uGridSize;
+      uniform float uSpeedMult;
+      uniform float uTime;
+
+      layout(location = 0) out vec4 outTracer;
+
+      float hash12(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      void main() {
+        ivec2 tid = ivec2(gl_FragCoord.xy);
+        vec4 st = texelFetch(uTracerTex, tid, 0);
+        float px = st.x;
+        float py = st.y;
+
+        vec2 maxIdx = uGridSize - 1.0;
+        float gx = px * maxIdx.x;
+        float gy = py * maxIdx.y;
+
+        ivec2 ic = clamp(ivec2(floor(gx), floor(gy)), ivec2(0), ivec2(uGridSize) - 1);
+        vec4 mac = texelFetch(uMacroTex, ic, 0);
+
+        gx += mac.b * uSpeedMult;
+        gy += mac.a * uSpeedMult;
+
+        if (gy < 0.0) gy += maxIdx.y;
+        if (gy >= maxIdx.y) gy -= maxIdx.y;
+
+        ivec2 checkC = clamp(ivec2(round(gx), round(gy)), ivec2(0), ivec2(uGridSize) - 1);
+        bool hitSolid = texelFetch(uSolidTex, checkC, 0).r > 0.5;
+
+        if (gx >= uGridSize.x - 1.5 || gx < 0.0 || hitSolid || isnan(gx) || isnan(gy)) {
+          float h1 = hash12(gl_FragCoord.xy + vec2(uTime * 13.7, st.z * 97.3));
+          float h2 = hash12(gl_FragCoord.xy + vec2(st.z * 53.1, uTime * 23.3));
+          gx = 0.5 + h1 * max(2.5, uGridSize.x * 0.025);
+          gy = 1.0 + h2 * (uGridSize.y - 2.0);
+        }
+
+        outTracer = vec4(gx / maxIdx.x, gy / maxIdx.y, st.z, 1.0);
+      }
+    `;
+
+    // GPU 3D 流体高度场着色器（零 CPU 回读，直接采样 GPU 物理场纹理）
+    const FLUID_SURFACE_COMMON_GLSL3 = `
+      uniform sampler2D uMacroTex;
+      uniform sampler2D uSolidTex;
+      uniform vec2 uGridSize;
+      uniform vec2 uWorldSize;
+      uniform int uFieldMode;
+      uniform float uHeightScale;
+      uniform float uU0;
+
+      vec4 sampleMacroBilinear(vec2 uv) {
+        vec2 maxIdx = uGridSize - 1.0;
+        vec2 p = clamp(uv, 0.0, 1.0) * maxIdx;
+        vec2 f = fract(p);
+        ivec2 i0 = ivec2(floor(p));
+        ivec2 i1 = min(i0 + ivec2(1), ivec2(maxIdx));
+        vec4 c00 = texelFetch(uMacroTex, ivec2(i0.x, i0.y), 0);
+        vec4 c10 = texelFetch(uMacroTex, ivec2(i1.x, i0.y), 0);
+        vec4 c01 = texelFetch(uMacroTex, ivec2(i0.x, i1.y), 0);
+        vec4 c11 = texelFetch(uMacroTex, ivec2(i1.x, i1.y), 0);
+        return mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
+      }
+
+      float sampleCurlAt(ivec2 c) {
+        ivec2 maxC = ivec2(uGridSize) - 1;
+        if (c.x <= 0 || c.x >= maxC.x || c.y <= 0 || c.y >= maxC.y) return 0.0;
+        if (texelFetch(uSolidTex, c, 0).r > 0.5) return 0.0;
+        float uyR = texelFetch(uMacroTex, ivec2(c.x + 1, c.y), 0).a;
+        float uyL = texelFetch(uMacroTex, ivec2(c.x - 1, c.y), 0).a;
+        float uxU = texelFetch(uMacroTex, ivec2(c.x, c.y + 1), 0).b;
+        float uxD = texelFetch(uMacroTex, ivec2(c.x, c.y - 1), 0).b;
+        return 0.5 * (uyR - uyL) - 0.5 * (uxU - uxD);
+      }
+
+      float sampleCurlBilinear(vec2 uv) {
+        vec2 maxIdx = uGridSize - 1.0;
+        vec2 p = clamp(uv, 0.0, 1.0) * maxIdx;
+        vec2 f = fract(p);
+        ivec2 i0 = ivec2(floor(p));
+        ivec2 i1 = min(i0 + ivec2(1), ivec2(maxIdx));
+        float c00 = sampleCurlAt(ivec2(i0.x, i0.y));
+        float c10 = sampleCurlAt(ivec2(i1.x, i0.y));
+        float c01 = sampleCurlAt(ivec2(i0.x, i1.y));
+        float c11 = sampleCurlAt(ivec2(i1.x, i1.y));
+        return mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
+      }
+
+      float evalHeightAndColor(vec2 uv, out vec3 baseColor) {
+        ivec2 nearestC = clamp(ivec2(round(uv * (uGridSize - 1.0))), ivec2(0), ivec2(uGridSize) - 1);
+        if (texelFetch(uSolidTex, nearestC, 0).r > 0.5) {
+          baseColor = vec3(0.12, 0.16, 0.28);
+          return -0.15;
+        }
+        vec4 mac = sampleMacroBilinear(uv);
+        float rho = mac.g;
+        float ux = mac.b;
+        float uy = mac.a;
+
+        if (uFieldMode == 0) {
+          // 旋度增益按 ny/44 自适应缩放，保证不同格点分辨率下涡街色彩对比度一致
+          float curlGain = 18.0 * (uGridSize.y / 44.0);
+          float c = clamp(sampleCurlBilinear(uv) * curlGain, -1.0, 1.0);
+          float h = c * 1.45 * uHeightScale;
+          if (c >= 0.0) {
+            baseColor = vec3(
+              0.06 + c * 0.94,
+              0.11 + sin(c * 2.513274) * 0.42,
+              0.22 * (1.0 - c) + 0.08 * c
+            );
+          } else {
+            float ac = -c;
+            baseColor = vec3(
+              0.06 * (1.0 - ac) + 0.05 * ac,
+              0.11 + ac * 0.68,
+              0.22 + ac * 0.78
+            );
+          }
+          return h;
+        } else if (uFieldMode == 1) {
+          float spd = length(vec2(ux, uy));
+          float t = clamp(spd / max(uU0 * 1.65, 0.001), 0.0, 1.0);
+          float h = (t - 0.35) * 2.2 * uHeightScale;
+          if (t < 0.33) {
+            float k = t / 0.33;
+            baseColor = vec3(0.05, 0.15 + k * 0.65, 0.35 + k * 0.55);
+          } else if (t < 0.66) {
+            float k = (t - 0.33) / 0.33;
+            baseColor = vec3(0.05 + k * 0.90, 0.80 + k * 0.15, 0.90 - k * 0.75);
+          } else {
+            float k = (t - 0.66) / 0.34;
+            baseColor = vec3(0.95, 0.95 - k * 0.72, 0.15);
+          }
+          return h;
+        } else {
+          float d = clamp((rho - 1.0) * 16.0, -1.0, 1.0);
+          float h = d * 1.6 * uHeightScale;
+          if (d >= 0.0) {
+            baseColor = vec3(0.12 + d * 0.88, 0.18 + d * 0.65, 0.30 * (1.0 - d) + 0.18 * d);
+          } else {
+            float ad = -d;
+            baseColor = vec3(0.12 + ad * 0.32, 0.18 * (1.0 - ad) + 0.08 * ad, 0.30 + ad * 0.65);
+          }
+          return h;
+        }
+      }
+    `;
+
+    const FLUID_SURFACE_VERT_GLSL3 = `
+      precision highp float;
+      precision highp int;
+      precision highp sampler2D;
+
+      in vec3 position;
+      in vec2 uv;
+
+      uniform mat4 modelMatrix;
+      uniform mat4 viewMatrix;
+      uniform mat4 projectionMatrix;
+
+      ${FLUID_SURFACE_COMMON_GLSL3}
+
+      out vec2 vUv;
+      out vec3 vWorldPos;
+
+      void main() {
+        vUv = uv;
+        vec3 dummyCol;
+        float h = evalHeightAndColor(uv, dummyCol);
+        vec3 displaced = vec3(position.x, h, position.z);
+        vec4 worldPos = modelMatrix * vec4(displaced, 1.0);
+        vWorldPos = worldPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `;
+
+    const FLUID_SURFACE_FRAG_GLSL3 = `
+      precision highp float;
+      precision highp int;
+      precision highp sampler2D;
+
+      uniform vec3 uCameraPos;
+
+      ${FLUID_SURFACE_COMMON_GLSL3}
+
+      in vec2 vUv;
+      in vec3 vWorldPos;
+      out vec4 fragColor;
+
+      vec3 acesToneMap(vec3 x) {
+        const float a = 2.51;
+        const float b = 0.03;
+        const float c = 2.43;
+        const float d = 0.59;
+        const float e = 0.14;
+        return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+      }
+
+      void main() {
+        vec3 baseCol;
+        evalHeightAndColor(vUv, baseCol);
+
+        // GPU 逐像素计算解析高度梯度法线（保持高分辨率细腻光影）
+        vec2 du = vec2(1.0 / (uGridSize.x - 1.0), 0.0);
+        vec2 dv = vec2(0.0, 1.0 / (uGridSize.y - 1.0));
+        vec3 tmp;
+        float hL = evalHeightAndColor(vUv - du, tmp);
+        float hR = evalHeightAndColor(vUv + du, tmp);
+        float hD = evalHeightAndColor(vUv - dv, tmp);
+        float hU = evalHeightAndColor(vUv + dv, tmp);
+
+        float dxWorld = 2.0 * uWorldSize.x / (uGridSize.x - 1.0);
+        float dzWorld = 2.0 * uWorldSize.y / (uGridSize.y - 1.0);
+        // uv.y 增加对应世界坐标 -Z 方向
+        float dhdx = (hR - hL) / dxWorld;
+        float dhdz = -(hU - hD) / dzWorld;
+        vec3 N = normalize(vec3(-dhdx, 1.0, -dhdz));
+        if (!gl_FrontFacing) N = -N;
+
+        vec3 V = normalize(uCameraPos - vWorldPos);
+
+        // 匹配 Three.js 场景三点光照
+        vec3 lit = baseCol * vec3(0.58, 0.72, 0.88) * 0.45;
+
+        // 主方向光
+        vec3 L1 = normalize(vec3(18.0, 35.0, 22.0));
+        float diff1 = max(dot(N, L1), 0.0);
+        vec3 H1 = normalize(L1 + V);
+        float spec1 = pow(max(dot(N, H1), 0.0), 42.0);
+        lit += baseCol * diff1 * 1.15 + vec3(1.0) * spec1 * 0.34;
+
+        // 青色轮廓点光
+        vec3 p2 = vec3(-22.0, 16.0, -18.0) - vWorldPos;
+        float d2 = length(p2);
+        vec3 L2 = p2 / max(d2, 0.001);
+        float att2 = 1.0 / (1.0 + 0.0008 * d2 * d2);
+        lit += baseCol * vec3(0.22, 0.74, 0.97) * max(dot(N, L2), 0.0) * 1.25 * att2;
+
+        // 暖色点缀光
+        vec3 p3 = vec3(22.0, 12.0, -15.0) - vWorldPos;
+        float d3 = length(p3);
+        vec3 L3 = p3 / max(d3, 0.001);
+        float att3 = 1.0 / (1.0 + 0.0009 * d3 * d3);
+        lit += baseCol * vec3(0.96, 0.62, 0.04) * max(dot(N, L3), 0.0) * 0.65 * att3;
+
+        // 匹配 scene.fog = FogExp2(0x060b16, 0.0105)
+        float camDist = length(uCameraPos - vWorldPos);
+        float fogFactor = 1.0 - exp(-0.0105 * 0.0105 * camDist * camDist);
+        vec3 fogColor = vec3(0.004, 0.008, 0.022);
+        lit = mix(lit, fogColor, clamp(fogFactor, 0.0, 1.0));
+
+        // ACES 色调映射 + sRGB 编码
+        vec3 mapped = acesToneMap(lit * 1.15);
+        fragColor = vec4(pow(mapped, vec3(1.0 / 2.2)), 1.0);
+      }
+    `;
+
+    const TRACER_POINTS_VERT_GLSL3 = `
+      precision highp float;
+      precision highp int;
+      precision highp sampler2D;
+
+      in vec3 position;
+      in vec2 aTracerUV;
+
+      uniform mat4 modelMatrix;
+      uniform mat4 viewMatrix;
+      uniform mat4 projectionMatrix;
+      uniform sampler2D uTracerTex;
+      uniform float uPixelRatio;
+
+      ${FLUID_SURFACE_COMMON_GLSL3}
+
+      void main() {
+        vec4 st = texture(uTracerTex, aTracerUV);
+        vec2 uv = clamp(st.xy, 0.0, 1.0);
+
+        vec3 dummyCol;
+        float surfaceY = evalHeightAndColor(uv, dummyCol);
+
+        float wx = (uv.x - 0.5) * uWorldSize.x;
+        float wz = (0.5 - uv.y) * uWorldSize.y;
+        vec4 worldPos = modelMatrix * vec4(wx, surfaceY + 0.35, wz, 1.0);
+        vec4 mvPos = viewMatrix * worldPos;
+        gl_Position = projectionMatrix * mvPos;
+        gl_PointSize = clamp((135.0 * uPixelRatio) / max(-mvPos.z, 1.0), 2.0, 16.0);
+      }
+    `;
+
+    const TRACER_POINTS_FRAG_GLSL3 = `
+      precision highp float;
+      out vec4 fragColor;
+      void main() {
+        vec2 d = gl_PointCoord - vec2(0.5);
+        float r = length(d) * 2.0;
+        if (r > 1.0) discard;
+        float core = exp(-r * r * 3.2);
+        vec3 col = mix(vec3(0.22, 0.74, 0.97), vec3(0.95, 0.99, 1.0), core);
+        fragColor = vec4(col, core * 0.88);
+      }
+    `;
+
+    class GpuLBMSolver {
+      constructor(webglRenderer, nx, ny, texType) {
+        this.renderer = webglRenderer;
+        this.nx = nx;
+        this.ny = ny;
+        this.texType = texType;
+        this.readIdx = 0;
+
+        this.quadScene = new THREE.Scene();
+        this.quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        this.quadGeo = new THREE.PlaneGeometry(2, 2);
+
+        const mrtOpts = {
+          type: texType,
+          format: THREE.RGBAFormat,
+          minFilter: THREE.NearestFilter,
+          magFilter: THREE.NearestFilter,
+          wrapS: THREE.ClampToEdgeWrapping,
+          wrapT: THREE.ClampToEdgeWrapping,
+          depthBuffer: false,
+          stencilBuffer: false,
+          generateMipmaps: false
+        };
+        this.mrts = [
+          new THREE.WebGLMultipleRenderTargets(nx, ny, 3, mrtOpts),
+          new THREE.WebGLMultipleRenderTargets(nx, ny, 3, mrtOpts)
+        ];
+
+        this.initMat = new THREE.RawShaderMaterial({
+          glslVersion: THREE.GLSL3,
+          vertexShader: QUAD_VERT_GLSL3,
+          fragmentShader: LBM_INIT_FRAG_GLSL3,
+          uniforms: {
+            uSolidTex: { value: null },
+            uGridSize: { value: new THREE.Vector2(nx, ny) },
+            uU0: { value: 0.11 }
+          },
+          depthTest: false,
+          depthWrite: false
+        });
+
+        this.stepMat = new THREE.RawShaderMaterial({
+          glslVersion: THREE.GLSL3,
+          vertexShader: QUAD_VERT_GLSL3,
+          fragmentShader: LBM_STEP_FRAG_GLSL3,
+          uniforms: {
+            uF0123: { value: null },
+            uF4567: { value: null },
+            uF8Macro: { value: null },
+            uSolidTex: { value: null },
+            uGridSize: { value: new THREE.Vector2(nx, ny) },
+            uTau: { value: 0.55 },
+            uU0: { value: 0.11 }
+          },
+          depthTest: false,
+          depthWrite: false
+        });
+
+        // GPU 示踪粒子 Ping-Pong (48x48 = 2,304 粒子)
+        this.tracerRes = 48;
+        this.tracerReadIdx = 0;
+        const tracerOpts = {
+          type: texType,
+          format: THREE.RGBAFormat,
+          minFilter: THREE.NearestFilter,
+          magFilter: THREE.NearestFilter,
+          wrapS: THREE.ClampToEdgeWrapping,
+          wrapT: THREE.ClampToEdgeWrapping,
+          depthBuffer: false,
+          stencilBuffer: false,
+          generateMipmaps: false
+        };
+        this.tracerRTs = [
+          new THREE.WebGLRenderTarget(this.tracerRes, this.tracerRes, tracerOpts),
+          new THREE.WebGLRenderTarget(this.tracerRes, this.tracerRes, tracerOpts)
+        ];
+
+        this.tracerInitMat = new THREE.RawShaderMaterial({
+          glslVersion: THREE.GLSL3,
+          vertexShader: QUAD_VERT_GLSL3,
+          fragmentShader: TRACER_INIT_FRAG_GLSL3,
+          uniforms: { uSeed: { value: 1.0 } },
+          depthTest: false,
+          depthWrite: false
+        });
+
+        this.tracerStepMat = new THREE.RawShaderMaterial({
+          glslVersion: THREE.GLSL3,
+          vertexShader: QUAD_VERT_GLSL3,
+          fragmentShader: TRACER_STEP_FRAG_GLSL3,
+          uniforms: {
+            uTracerTex: { value: null },
+            uMacroTex: { value: null },
+            uSolidTex: { value: null },
+            uGridSize: { value: new THREE.Vector2(nx, ny) },
+            uSpeedMult: { value: 10.0 },
+            uTime: { value: 0.0 }
+          },
+          depthTest: false,
+          depthWrite: false
+        });
+
+        this.quadMesh = new THREE.Mesh(this.quadGeo, this.initMat);
+        this.quadScene.add(this.quadMesh);
+      }
+
+      get macroTexture() {
+        return this.mrts[this.readIdx].texture[2];
+      }
+
+      get tracerTexture() {
+        return this.tracerRTs[this.tracerReadIdx].texture;
+      }
+
+      initFluid(solidTex, u0) {
+        this.initMat.uniforms.uSolidTex.value = solidTex;
+        this.initMat.uniforms.uGridSize.value.set(this.nx, this.ny);
+        this.initMat.uniforms.uU0.value = u0;
+        this.quadMesh.material = this.initMat;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        this.renderer.setRenderTarget(this.mrts[0]);
+        this.renderer.render(this.quadScene, this.quadCamera);
+        this.renderer.setRenderTarget(this.mrts[1]);
+        this.renderer.render(this.quadScene, this.quadCamera);
+        this.renderer.setRenderTarget(prevTarget);
+        this.readIdx = 0;
+      }
+
+      step(solidTex, tau, u0, numSteps) {
+        const u = this.stepMat.uniforms;
+        u.uSolidTex.value = solidTex;
+        u.uGridSize.value.set(this.nx, this.ny);
+        u.uTau.value = tau;
+        u.uU0.value = u0;
+        this.quadMesh.material = this.stepMat;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        for (let s = 0; s < numSteps; s++) {
+          const src = this.mrts[this.readIdx];
+          const dstIdx = 1 - this.readIdx;
+          const dst = this.mrts[dstIdx];
+
+          u.uF0123.value = src.texture[0];
+          u.uF4567.value = src.texture[1];
+          u.uF8Macro.value = src.texture[2];
+
+          this.renderer.setRenderTarget(dst);
+          this.renderer.render(this.quadScene, this.quadCamera);
+          this.readIdx = dstIdx;
+        }
+        this.renderer.setRenderTarget(prevTarget);
+      }
+
+      initTracers() {
+        this.tracerInitMat.uniforms.uSeed.value = Math.random() * 100.0 + 1.0;
+        this.quadMesh.material = this.tracerInitMat;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        this.renderer.setRenderTarget(this.tracerRTs[0]);
+        this.renderer.render(this.quadScene, this.quadCamera);
+        this.renderer.setRenderTarget(this.tracerRTs[1]);
+        this.renderer.render(this.quadScene, this.quadCamera);
+        this.renderer.setRenderTarget(prevTarget);
+        this.tracerReadIdx = 0;
+      }
+
+      stepTracers(macroTex, solidTex, speedMult, timeSec) {
+        const dstIdx = 1 - this.tracerReadIdx;
+        const u = this.tracerStepMat.uniforms;
+        u.uTracerTex.value = this.tracerRTs[this.tracerReadIdx].texture;
+        u.uMacroTex.value = macroTex;
+        u.uSolidTex.value = solidTex;
+        u.uGridSize.value.set(this.nx, this.ny);
+        u.uSpeedMult.value = speedMult;
+        u.uTime.value = timeSec;
+        this.quadMesh.material = this.tracerStepMat;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        this.renderer.setRenderTarget(this.tracerRTs[dstIdx]);
+        this.renderer.render(this.quadScene, this.quadCamera);
+        this.renderer.setRenderTarget(prevTarget);
+        this.tracerReadIdx = dstIdx;
+      }
+
+      dispose() {
+        this.mrts.forEach(m => m.dispose());
+        this.tracerRTs.forEach(rt => rt.dispose());
+        this.quadGeo.dispose();
+        this.initMat.dispose();
+        this.stepMat.dispose();
+        this.tracerInitMat.dispose();
+        this.tracerStepMat.dispose();
+      }
+    }
+
+    class MacroLBMScene {
+      constructor(group, nx = 200, ny = 88) {
+        this.group = group;
+        this.nx = nx;
+        this.ny = ny;
+        this.backend = GPU_CAP.supported ? 'gpu' : 'cpu';
+
+        this.tau = 0.550;
+        this.u0 = 0.110;
+        this.heightScale = 1.2;
+        this.fieldMode = 'vorticity'; // 'vorticity' | 'velocity' | 'density'
+        this.toolMode = 'orbit';      // 'orbit' | 'draw' | 'erase'
+        this.preset = 'cylinder';
+        this.playing = true;
+        this.showTracers = true;
+        this.stepsPerFrame = 10;
+        this.brushRadius = 4.0;
+        this.simSteps = 0;
+        this.obstacleCharLen = 18.5;
+
+        this.gpuSolver = null;
+        this.solidTex = null;
+        this.cpuMacroTex = null;
+        this.obstacleCapacity = 0;
+
+        this.rebuildAll(nx, ny, true);
+      }
+
+      idx(x, y) {
+        return y * this.nx + x;
+      }
+
+      computeWorldDims() {
+        const aspect = this.nx / this.ny;
+        if (aspect >= 40 / 28) {
+          this.worldW = 40;
+          this.worldH = 40 / aspect;
+        } else {
+          this.worldH = 28;
+          this.worldW = 28 * aspect;
+        }
+      }
+
+      disposeResources() {
+        if (this.gpuSolver) {
+          this.gpuSolver.dispose();
+          this.gpuSolver = null;
+        }
+        if (this.solidTex) {
+          this.solidTex.dispose();
+          this.solidTex = null;
+        }
+        if (this.cpuMacroTex) {
+          this.cpuMacroTex.dispose();
+          this.cpuMacroTex = null;
+        }
+        const geometries = new Set();
+        const materials = new Set();
+        this.group.traverse((obj) => {
+          if (obj.geometry) geometries.add(obj.geometry);
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => materials.add(m));
+            else materials.add(obj.material);
+          }
+        });
+        while (this.group.children.length > 0) {
+          this.group.remove(this.group.children[0]);
+        }
+        geometries.forEach(g => g.dispose());
+        materials.forEach(m => m.dispose());
+      }
+
+      rebuildAll(newNx, newNy, reloadPreset = true) {
+        this.disposeResources();
+        this.nx = clamp(Math.round(newNx), 32, 1024);
+        this.ny = clamp(Math.round(newNy), 24, 512);
+        this.computeWorldDims();
+
+        const N = this.nx * this.ny;
+        this.solid = new Uint8Array(N);
+        this.solidRGBA = new Uint8Array(N * 4);
+        this.solidTex = new THREE.DataTexture(this.solidRGBA, this.nx, this.ny, THREE.RGBAFormat, THREE.UnsignedByteType);
+        this.solidTex.minFilter = THREE.NearestFilter;
+        this.solidTex.magFilter = THREE.NearestFilter;
+        this.solidTex.wrapS = THREE.ClampToEdgeWrapping;
+        this.solidTex.wrapT = THREE.ClampToEdgeWrapping;
+        this.solidTex.flipY = false;
+        this.solidTex.needsUpdate = true;
+
+        // CPU 求解缓冲区（仅在切换至 CPU 或无 GPU 扩展时使用）
+        this.cpuAllocated = false;
+        this.cpuMacroData = null;
+        this.cpuMacroTex = null;
+
+        if (GPU_CAP.supported) {
+          this.gpuSolver = new GpuLBMSolver(renderer, this.nx, this.ny, GPU_CAP.texType);
+        } else {
+          this.backend = 'cpu';
+        }
+
+        if (this.backend === 'cpu') {
+          this.ensureCpuBuffers();
+        }
+
+        this.buildScene();
+        if (reloadPreset) {
+          this.loadPreset(this.preset);
+        } else {
+          this.uploadSolidTexture();
+          this.resetFluid();
+          this.syncObstacleInstances();
+        }
+      }
+
+      ensureCpuBuffers() {
+        const N = this.nx * this.ny;
+        if (this.cpuAllocated && this.rho && this.rho.length === N) return;
+        this.f = new Float32Array(N * 9);
+        this.fNext = new Float32Array(N * 9);
+        this.rho = new Float32Array(N);
+        this.ux = new Float32Array(N);
+        this.uy = new Float32Array(N);
+        this.cpuMacroData = new Float32Array(N * 4);
+        if (this.cpuMacroTex) this.cpuMacroTex.dispose();
+        this.cpuMacroTex = new THREE.DataTexture(this.cpuMacroData, this.nx, this.ny, THREE.RGBAFormat, THREE.FloatType);
+        this.cpuMacroTex.minFilter = THREE.NearestFilter;
+        this.cpuMacroTex.magFilter = THREE.NearestFilter;
+        this.cpuMacroTex.wrapS = THREE.ClampToEdgeWrapping;
+        this.cpuMacroTex.wrapT = THREE.ClampToEdgeWrapping;
+        this.cpuMacroTex.flipY = false;
+        this.cpuMacroTex.needsUpdate = true;
+
+        this.numCpuTracers = 1500;
+        this.tracerX = new Float32Array(this.numCpuTracers);
+        this.tracerY = new Float32Array(this.numCpuTracers);
+        this.cpuAllocated = true;
+      }
+
+      setBackend(targetBackend) {
+        if (targetBackend === 'gpu' && !GPU_CAP.supported) {
+          this.backend = 'cpu';
+          return false;
+        }
+        if (this.backend === targetBackend) return true;
+        this.backend = targetBackend;
+        if (this.backend === 'cpu') {
+          this.ensureCpuBuffers();
+        }
+        this.resetFluid();
+        return true;
+      }
+
+      uploadSolidTexture() {
+        const N = this.nx * this.ny;
+        for (let i = 0; i < N; i++) {
+          const v = this.solid[i] ? 255 : 0;
+          const o = i * 4;
+          this.solidRGBA[o] = v;
+          this.solidRGBA[o + 1] = v;
+          this.solidRGBA[o + 2] = v;
+          this.solidRGBA[o + 3] = 255;
+        }
+        this.solidTex.needsUpdate = true;
+      }
+
+      getActiveMacroTex() {
+        if (this.backend === 'gpu' && this.gpuSolver) {
+          return this.gpuSolver.macroTexture;
+        }
+        return this.cpuMacroTex;
+      }
+
+      buildScene() {
+        // 1. GPU 驱动的 3D 高度场曲面（限制顶点细分上限，逐像素采样全分辨率纹理）
+        const segX = Math.min(this.nx - 1, 320);
+        const segY = Math.min(this.ny - 1, 180);
+        this.planeGeo = new THREE.PlaneGeometry(this.worldW, this.worldH, segX, segY);
+        this.planeGeo.rotateX(-Math.PI / 2);
+
+        this.fluidMat = new THREE.RawShaderMaterial({
+          glslVersion: THREE.GLSL3,
+          vertexShader: FLUID_SURFACE_VERT_GLSL3,
+          fragmentShader: FLUID_SURFACE_FRAG_GLSL3,
+          uniforms: {
+            uCameraPos: { value: camera.position.clone() },
+            uMacroTex: { value: this.getActiveMacroTex() },
+            uSolidTex: { value: this.solidTex },
+            uGridSize: { value: new THREE.Vector2(this.nx, this.ny) },
+            uWorldSize: { value: new THREE.Vector2(this.worldW, this.worldH) },
+            uFieldMode: { value: 0 },
+            uHeightScale: { value: this.heightScale },
+            uU0: { value: this.u0 }
+          },
+          side: THREE.DoubleSide
+        });
+        this.fluidMesh = new THREE.Mesh(this.planeGeo, this.fluidMat);
+        this.group.add(this.fluidMesh);
+
+        // O(1) 不可见射线拾取平面（避免对数万三角形做射线求交）
+        const hitGeo = new THREE.PlaneGeometry(this.worldW, this.worldH, 1, 1);
+        hitGeo.rotateX(-Math.PI / 2);
+        const hitMat = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide });
+        this.hitPlane = new THREE.Mesh(hitGeo, hitMat);
+        this.group.add(this.hitPlane);
+
+        // 风洞外框装饰线
+        const frameGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(this.worldW, 2.4, this.worldH));
+        const frameMat = new THREE.LineBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.55 });
+        const frame = new THREE.LineSegments(frameGeo, frameMat);
+        frame.position.y = 0.2;
+        this.group.add(frame);
+
+        // 2. 固体障碍物 InstancedMesh
+        const cellW = this.worldW / (this.nx - 1);
+        const cellH = this.worldH / (this.ny - 1);
+        this.obsGeo = new THREE.BoxGeometry(cellW * 1.04, 2.4, cellH * 1.04);
+        this.obsMat = new THREE.MeshStandardMaterial({
+          color: 0x334155,
+          emissive: 0x38bdf8,
+          emissiveIntensity: 0.22,
+          roughness: 0.25,
+          metalness: 0.82
+        });
+        this.obstacleCapacity = Math.min(this.nx * this.ny, 65536);
+        this.obstacleMesh = new THREE.InstancedMesh(this.obsGeo, this.obsMat, this.obstacleCapacity);
+        this.obstacleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.obstacleMesh.frustumCulled = false;
+        this.group.add(this.obstacleMesh);
+
+        // 3. GPU 示踪粒子系统
+        if (this.gpuSolver) {
+          const res = this.gpuSolver.tracerRes;
+          const count = res * res;
+          const pGeo = new THREE.BufferGeometry();
+          const dummyPos = new Float32Array(count * 3);
+          const uvs = new Float32Array(count * 2);
+          let ptr = 0;
+          for (let y = 0; y < res; y++) {
+            for (let x = 0; x < res; x++) {
+              uvs[ptr++] = (x + 0.5) / res;
+              uvs[ptr++] = (y + 0.5) / res;
+            }
+          }
+          pGeo.setAttribute('position', new THREE.BufferAttribute(dummyPos, 3));
+          pGeo.setAttribute('aTracerUV', new THREE.BufferAttribute(uvs, 2));
+
+          this.tracerMat = new THREE.RawShaderMaterial({
+            glslVersion: THREE.GLSL3,
+            vertexShader: TRACER_POINTS_VERT_GLSL3,
+            fragmentShader: TRACER_POINTS_FRAG_GLSL3,
+            uniforms: {
+              uTracerTex: { value: this.gpuSolver.tracerTexture },
+              uMacroTex: { value: this.getActiveMacroTex() },
+              uSolidTex: { value: this.solidTex },
+              uGridSize: { value: new THREE.Vector2(this.nx, this.ny) },
+              uWorldSize: { value: new THREE.Vector2(this.worldW, this.worldH) },
+              uFieldMode: { value: 0 },
+              uHeightScale: { value: this.heightScale },
+              uU0: { value: this.u0 },
+              uPixelRatio: { value: renderer.getPixelRatio() }
+            },
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+          });
+          this.tracerPoints = new THREE.Points(pGeo, this.tracerMat);
+          this.tracerPoints.frustumCulled = false;
+          this.group.add(this.tracerPoints);
+        } else {
+          // 纯 CPU 回退示踪粒子
+          const pGeo = new THREE.BufferGeometry();
+          this.tracerPosAttr = new THREE.BufferAttribute(new Float32Array(this.numCpuTracers * 3), 3);
+          pGeo.setAttribute('position', this.tracerPosAttr);
+          const pMat = new THREE.PointsMaterial({
+            size: 0.36,
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            color: 0xbae6fd
+          });
+          this.tracerPoints = new THREE.Points(pGeo, pMat);
+          this.tracerPoints.frustumCulled = false;
+          this.group.add(this.tracerPoints);
+        }
+      }
+
+      // 4 种内置风洞预设场景（按当前格点尺寸等比例自适应缩放）
+      loadPreset(name) {
+        this.preset = name;
+        this.solid.fill(0);
+        const cx = Math.floor(this.nx * 0.24);
+        const cy = Math.floor(this.ny * 0.5);
+
+        if (name === 'cylinder') {
+          const r = Math.max(2.0, this.ny * 0.105);
+          this.obstacleCharLen = r * 2;
+          for (let y = 1; y < this.ny - 1; y++) {
+            for (let x = 2; x < this.nx - 2; x++) {
+              const dx = x - cx;
+              const dy = y - cy;
+              if (dx * dx + dy * dy <= r * r) {
+                this.solid[this.idx(x, y)] = 1;
+              }
+            }
+          }
+        } else if (name === 'airfoil') {
+          const chord = Math.max(8.0, Math.min(this.nx * 0.22, this.ny * 0.46));
+          const thickness = 0.22;
+          const aoa = (12 * Math.PI) / 180;
+          const cosA = Math.cos(aoa);
+          const sinA = Math.sin(aoa);
+          const pivotX = cx - chord * 0.2;
+          const pivotY = cy;
+          this.obstacleCharLen = chord * Math.sin(aoa) + chord * thickness * 0.7;
+
+          for (let y = 1; y < this.ny - 1; y++) {
+            for (let x = 2; x < this.nx - 2; x++) {
+              const dx = x - pivotX;
+              const dy = y - pivotY;
+              const lx = dx * cosA - dy * sinA;
+              const ly = dx * sinA + dy * cosA;
+              const xn = lx / chord;
+              if (xn >= 0 && xn <= 1.0) {
+                const yt = 5 * thickness * chord * (
+                  0.2969 * Math.sqrt(xn) -
+                  0.1260 * xn -
+                  0.3516 * xn * xn +
+                  0.2843 * xn * xn * xn -
+                  0.1015 * xn * xn * xn * xn
+                );
+                if (Math.abs(ly) <= yt) {
+                  this.solid[this.idx(x, y)] = 1;
+                }
+              }
+            }
+          }
+        } else if (name === 'twin') {
+          const r = Math.max(2.0, this.ny * 0.08);
+          this.obstacleCharLen = r * 2;
+          const oy1 = this.ny * 0.136;
+          const ox2 = this.ny * 0.227;
+          const oy2 = this.ny * 0.114;
+          for (let y = 1; y < this.ny - 1; y++) {
+            for (let x = 2; x < this.nx - 2; x++) {
+              const d1 = Math.hypot(x - cx, y - (cy - oy1));
+              const d2 = Math.hypot(x - (cx + ox2), y - (cy + oy2));
+              if (d1 <= r || d2 <= r) {
+                this.solid[this.idx(x, y)] = 1;
+              }
+            }
+          }
+        } else if (name === 'slit') {
+          const halfGap = Math.max(2, Math.round(this.ny * 0.095));
+          const wallThick = Math.max(2, Math.round(this.nx * 0.02));
+          this.obstacleCharLen = halfGap * 2;
+          const wallX = Math.floor(this.nx * 0.25);
+          for (let y = 0; y < this.ny; y++) {
+            if (Math.abs(y - cy) > halfGap) {
+              for (let t = 0; t < wallThick && wallX + t < this.nx - 2; t++) {
+                this.solid[this.idx(wallX + t, y)] = 1;
+              }
+            }
+          }
+        }
+
+        this.uploadSolidTexture();
+        this.resetFluid();
+        this.syncObstacleInstances();
+      }
+
+      clearObstacles() {
+        this.solid.fill(0);
+        this.uploadSolidTexture();
+        this.syncObstacleInstances();
+      }
+
+      resetFluid() {
+        this.simSteps = 0;
+        if (this.gpuSolver) {
+          this.gpuSolver.initFluid(this.solidTex, this.u0);
+          this.gpuSolver.initTracers();
+        }
+        if (this.backend === 'cpu') {
+          this.ensureCpuBuffers();
+          for (let y = 0; y < this.ny; y++) {
+            for (let x = 0; x < this.nx; x++) {
+              const idx = this.idx(x, y);
+              const ux = this.solid[idx] ? 0 : this.u0;
+              const uy = this.solid[idx] ? 0 : 0.002 * Math.sin((x / this.nx) * Math.PI * 4);
+              this.rho[idx] = 1.0;
+              this.ux[idx] = ux;
+              this.uy[idx] = uy;
+              for (let i = 0; i < 9; i++) {
+                const feq = calcFeq(i, 1.0, ux, uy);
+                this.f[idx * 9 + i] = feq;
+                this.fNext[idx * 9 + i] = feq;
+              }
+            }
+          }
+          for (let p = 0; p < this.numCpuTracers; p++) {
+            this.tracerX[p] = Math.random() * (this.nx - 2) + 1;
+            this.tracerY[p] = Math.random() * (this.ny - 2) + 1;
+          }
+          this.uploadCpuMacroTexture();
+        }
+        this.syncShaderUniforms();
+      }
+
+      uploadCpuMacroTexture() {
+        const N = this.nx * this.ny;
+        const dst = this.cpuMacroData;
+        for (let i = 0; i < N; i++) {
+          const o = i * 4;
+          dst[o] = 0;
+          dst[o + 1] = this.rho[i];
+          dst[o + 2] = this.ux[i];
+          dst[o + 3] = this.uy[i];
+        }
+        this.cpuMacroTex.needsUpdate = true;
+      }
+
+      syncObstacleInstances() {
+        let needed = 0;
+        const N = this.nx * this.ny;
+        for (let i = 0; i < N; i++) {
+          if (this.solid[i]) needed++;
+        }
+        if (needed > this.obstacleCapacity) {
+          this.group.remove(this.obstacleMesh);
+          this.obstacleCapacity = Math.min(N, Math.max(needed, this.obstacleCapacity * 2));
+          this.obstacleMesh = new THREE.InstancedMesh(this.obsGeo, this.obsMat, this.obstacleCapacity);
+          this.obstacleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+          this.obstacleMesh.frustumCulled = false;
+          this.group.add(this.obstacleMesh);
+        }
+
+        const dummy = new THREE.Object3D();
+        let count = 0;
+        for (let y = 0; y < this.ny; y++) {
+          for (let x = 0; x < this.nx; x++) {
+            if (this.solid[this.idx(x, y)]) {
+              const wx = (x / (this.nx - 1) - 0.5) * this.worldW;
+              const wz = (0.5 - y / (this.ny - 1)) * this.worldH;
+              dummy.position.set(wx, 0.35, wz);
+              dummy.updateMatrix();
+              this.obstacleMesh.setMatrixAt(count++, dummy.matrix);
+            }
+          }
+        }
+        this.obstacleMesh.count = count;
+        this.obstacleMesh.instanceMatrix.needsUpdate = true;
+      }
+
+      paintAtWorldPoint(point, isDraw) {
+        const gx = Math.round(((point.x / this.worldW) + 0.5) * (this.nx - 1));
+        const gy = Math.round((0.5 - (point.z / this.worldH)) * (this.ny - 1));
+        const brushR = this.brushRadius;
+        const rCeil = Math.ceil(brushR);
+        let changed = false;
+
+        for (let dy = -rCeil; dy <= rCeil; dy++) {
+          for (let dx = -rCeil; dx <= rCeil; dx++) {
+            if (dx * dx + dy * dy > brushR * brushR) continue;
+            const x = gx + dx;
+            const y = gy + dy;
+            if (x <= 1 || x >= this.nx - 2 || y <= 0 || y >= this.ny - 1) continue;
+            const idx = this.idx(x, y);
+            const targetVal = isDraw ? 1 : 0;
+            if (this.solid[idx] !== targetVal) {
+              this.solid[idx] = targetVal;
+              changed = true;
+              if (!isDraw && this.backend === 'cpu' && this.cpuAllocated) {
+                this.rho[idx] = 1.0;
+                this.ux[idx] = this.u0 * 0.5;
+                this.uy[idx] = 0;
+                for (let i = 0; i < 9; i++) {
+                  this.f[idx * 9 + i] = calcFeq(i, 1.0, this.u0 * 0.5, 0);
+                }
+              }
+            }
+          }
+        }
+        if (changed) {
+          this.uploadSolidTexture();
+          this.syncObstacleInstances();
+        }
+      }
+
+      stepLBM_CPU() {
+        const nx = this.nx;
+        const ny = this.ny;
+        const invTau = 1.0 / this.tau;
+        const f = this.f;
+        const fNext = this.fNext;
+        const solid = this.solid;
+
+        for (let y = 0; y < ny; y++) {
+          const idx = y * nx;
+          if (solid[idx]) continue;
+          for (let i = 0; i < 9; i++) {
+            f[idx * 9 + i] = calcFeq(i, 1.0, this.u0, 0.0);
+          }
+        }
+
+        let hasNaN = false;
+        for (let y = 0; y < ny; y++) {
+          for (let x = 0; x < nx; x++) {
+            const idx = y * nx + x;
+            const base = idx * 9;
+
+            if (solid[idx]) {
+              this.rho[idx] = 1.0;
+              this.ux[idx] = 0.0;
+              this.uy[idx] = 0.0;
+              continue;
+            }
+
+            const f0 = f[base], f1 = f[base + 1], f2 = f[base + 2],
+                  f3 = f[base + 3], f4 = f[base + 4], f5 = f[base + 5],
+                  f6 = f[base + 6], f7 = f[base + 7], f8 = f[base + 8];
+
+            let rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
+            if (!Number.isFinite(rho) || rho <= 0.05) {
+              hasNaN = true;
+              rho = 1.0;
+            }
+            let ux = (f1 - f3 + f5 - f6 - f7 + f8) / rho;
+            let uy = (f2 - f4 + f5 + f6 - f7 - f8) / rho;
+
+            const u2 = ux * ux + uy * uy;
+            if (u2 > 0.1225) {
+              const s = 0.35 / Math.sqrt(u2);
+              ux *= s;
+              uy *= s;
+            }
+            rho = clamp(rho, 0.5, 2.0);
+            this.rho[idx] = rho;
+            this.ux[idx] = ux;
+            this.uy[idx] = uy;
+
+            const u2Clamped = ux * ux + uy * uy;
+
+            for (let i = 0; i < 9; i++) {
+              const cu = CX[i] * ux + CY[i] * uy;
+              const feq = W[i] * rho * (1.0 + 3.0 * cu + 4.5 * cu * cu - 1.5 * u2Clamped);
+              const fPost = f[base + i] - invTau * (f[base + i] - feq);
+
+              const tx = x + CX[i];
+              const ty = (y + CY[i] + ny) % ny;
+
+              if (tx >= 0 && tx < nx) {
+                const tIdx = ty * nx + tx;
+                if (solid[tIdx]) {
+                  fNext[base + OPP[i]] = fPost;
+                } else {
+                  fNext[tIdx * 9 + i] = fPost;
+                }
+              }
+            }
+          }
+        }
+
+        if (hasNaN) {
+          this.resetFluid();
+          return;
+        }
+
+        for (let y = 0; y < ny; y++) {
+          const outIdx = (y * nx + (nx - 1)) * 9;
+          const prevIdx = (y * nx + (nx - 2)) * 9;
+          for (let i = 0; i < 9; i++) {
+            fNext[outIdx + i] = fNext[prevIdx + i];
+          }
+        }
+
+        const tmp = this.f;
+        this.f = this.fNext;
+        this.fNext = tmp;
+        this.simSteps++;
+      }
+
+      syncShaderUniforms() {
+        const fieldCode = this.fieldMode === 'vorticity' ? 0 : (this.fieldMode === 'velocity' ? 1 : 2);
+        const macroTex = this.getActiveMacroTex();
+
+        if (this.fluidMat) {
+          const u = this.fluidMat.uniforms;
+          u.uCameraPos.value.copy(camera.position);
+          u.uMacroTex.value = macroTex;
+          u.uSolidTex.value = this.solidTex;
+          u.uFieldMode.value = fieldCode;
+          u.uHeightScale.value = this.heightScale;
+          u.uU0.value = this.u0;
+        }
+        if (this.tracerMat && this.gpuSolver) {
+          const u = this.tracerMat.uniforms;
+          u.uTracerTex.value = this.gpuSolver.tracerTexture;
+          u.uMacroTex.value = macroTex;
+          u.uSolidTex.value = this.solidTex;
+          u.uFieldMode.value = fieldCode;
+          u.uHeightScale.value = this.heightScale;
+          u.uU0.value = this.u0;
+          u.uPixelRatio.value = renderer.getPixelRatio();
+        }
+        if (this.tracerPoints) {
+          this.tracerPoints.visible = this.showTracers;
+        }
+      }
+
+      updateCpuFallbackTracers() {
+        if (!this.tracerPosAttr || !this.showTracers) return;
+        const pArr = this.tracerPosAttr.array;
+        const nx = this.nx;
+        const ny = this.ny;
+        const speedMult = this.playing ? this.stepsPerFrame * 1.15 : 0;
+        for (let p = 0; p < this.numCpuTracers; p++) {
+          let px = this.tracerX[p];
+          let py = this.tracerY[p];
+          const ix = clamp(Math.floor(px), 0, nx - 2);
+          const iy = clamp(Math.floor(py), 0, ny - 2);
+          const idx = iy * nx + ix;
+          if (this.playing) {
+            px += this.ux[idx] * speedMult;
+            py += this.uy[idx] * speedMult;
+            if (py < 0) py += ny - 1;
+            if (py >= ny - 1) py -= ny - 1;
+            const checkIdx = clamp(Math.round(py), 0, ny - 1) * nx + clamp(Math.round(px), 0, nx - 1);
+            if (px >= nx - 1.5 || px < 0 || this.solid[checkIdx]) {
+              px = 0.5 + Math.random() * 2.5;
+              py = 1 + Math.random() * (ny - 2);
+            }
+            this.tracerX[p] = px;
+            this.tracerY[p] = py;
+          }
+          pArr[p * 3] = (px / (nx - 1) - 0.5) * this.worldW;
+          pArr[p * 3 + 1] = 0.45;
+          pArr[p * 3 + 2] = (0.5 - py / (ny - 1)) * this.worldH;
+        }
+        this.tracerPosAttr.needsUpdate = true;
+      }
+
+      update(nowSec = 0) {
+        if (this.playing) {
+          if (this.backend === 'gpu' && this.gpuSolver) {
+            this.gpuSolver.step(this.solidTex, this.tau, this.u0, this.stepsPerFrame);
+            this.simSteps += this.stepsPerFrame;
+          } else {
+            for (let s = 0; s < this.stepsPerFrame; s++) {
+              this.stepLBM_CPU();
+            }
+            this.uploadCpuMacroTexture();
+          }
+
+          if (this.showTracers) {
+            if (this.gpuSolver) {
+              this.gpuSolver.stepTracers(
+                this.getActiveMacroTex(),
+                this.solidTex,
+                this.stepsPerFrame * 1.15,
+                nowSec
+              );
+            } else {
+              this.updateCpuFallbackTracers();
+            }
+          }
+        }
+
+        this.syncShaderUniforms();
+
+        const nu = (this.tau - 0.5) / 3.0;
+        const re = (this.u0 * this.obstacleCharLen) / Math.max(nu, 1e-4);
+        const ma = this.u0 * Math.sqrt(3);
+        document.getElementById('stat-re').textContent = Math.round(re);
+        document.getElementById('macro-nu').textContent = nu.toFixed(4);
+        document.getElementById('macro-ma').textContent = ma.toFixed(2);
+      }
+    }
+
+    // =========================================================================
+    // 6. 模式切换、实例化与 UI 事件绑定
+    // =========================================================================
+    function syncEngineAndGridUI() {
+      const statEngine = document.getElementById('stat-engine');
+      if (currentMode === 'micro') {
+        if (statEngine && microSim) {
+          statEngine.textContent = `CPU · ${microSim.nx}×${microSim.ny}`;
+          statEngine.className = 'text-cyan-300 font-semibold';
+        }
+        return;
+      }
+      if (!macroSim) return;
+      const isGpu = macroSim.backend === 'gpu';
+      if (statEngine) {
+        statEngine.textContent = isGpu ? `GPU · ${macroSim.nx}×${macroSim.ny}` : `CPU · ${macroSim.nx}×${macroSim.ny}`;
+        statEngine.className = isGpu ? 'text-emerald-400 font-semibold' : 'text-amber-300 font-semibold';
+      }
+      const gridBadge = document.getElementById('macro-grid-badge');
+      if (gridBadge) {
+        gridBadge.textContent = `${macroSim.nx}×${macroSim.ny} · ${isGpu ? 'GPU' : 'CPU'}`;
+        gridBadge.className = isGpu ? 'text-[11px] font-mono-code text-emerald-300' : 'text-[11px] font-mono-code text-amber-300';
+      }
+      const precBadge = document.getElementById('gpu-precision-badge');
+      if (precBadge) {
+        precBadge.textContent = GPU_CAP.supported ? GPU_CAP.label : `不可用 (${GPU_CAP.label})`;
+        precBadge.className = GPU_CAP.supported ? 'font-mono-code text-[10px] text-emerald-400' : 'font-mono-code text-[10px] text-rose-400';
+      }
+      const cellCountEl = document.getElementById('macro-cell-count');
+      if (cellCountEl) {
+        cellCountEl.textContent = `${(macroSim.nx * macroSim.ny).toLocaleString()} 格点`;
+      }
+      const inNx = document.getElementById('input-macro-nx');
+      const inNy = document.getElementById('input-macro-ny');
+      if (inNx) inNx.value = macroSim.nx;
+      if (inNy) inNy.value = macroSim.ny;
+
+      document.querySelectorAll('.macro-backend-btn').forEach(btn => {
+        const active = btn.dataset.backend === macroSim.backend;
+        if (btn.dataset.backend === 'gpu' && !GPU_CAP.supported) {
+          btn.disabled = true;
+          btn.className = 'macro-backend-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-900/50 border border-slate-800 text-slate-600 cursor-not-allowed';
+          return;
+        }
+        btn.className = active
+          ? (btn.dataset.backend === 'gpu'
+            ? 'macro-backend-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-emerald-500/25 border border-emerald-400/60 text-emerald-200 transition'
+            : 'macro-backend-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-amber-500/25 border border-amber-400/60 text-amber-200 transition')
+          : 'macro-backend-btn py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition';
+      });
+
+      const resKey = `${macroSim.nx}x${macroSim.ny}`;
+      document.querySelectorAll('.macro-res-btn').forEach(btn => {
+        const active = btn.dataset.res === resKey;
+        btn.className = active
+          ? 'macro-res-btn py-1 rounded-lg text-[10px] font-mono-code bg-cyan-500/25 border border-cyan-400/60 text-cyan-200 transition'
+          : 'macro-res-btn py-1 rounded-lg text-[10px] font-mono-code bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition';
+      });
+
+      updateEducationCard('macro');
+    }
+
+    function applyMacroToolMode(tool) {
+      if (!macroSim) return;
+      macroSim.toolMode = tool;
+      document.querySelectorAll('.macro-tool-btn').forEach(btn => {
+        const active = btn.dataset.tool === tool;
+        btn.className = active
+          ? 'macro-tool-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-indigo-500 text-white shadow shadow-indigo-500/30 transition'
+          : 'macro-tool-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition';
+      });
+      if (currentMode === 'macro' && tool !== 'orbit') {
+        controls.mouseButtons.LEFT = null;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+        renderer.domElement.style.cursor = 'crosshair';
+      } else {
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+        renderer.domElement.style.cursor = 'grab';
+      }
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      const isMicro = mode === 'micro';
+
+      microGroup.visible = isMicro;
+      macroGroup.visible = !isMicro;
+
+      document.getElementById('controls-micro').classList.toggle('hidden', !isMicro);
+      document.getElementById('controls-macro').classList.toggle('hidden', isMicro);
+      document.getElementById('micro-probe-card').classList.toggle('hidden', !isMicro);
+      document.getElementById('macro-legend-card').classList.toggle('hidden', isMicro);
+
+      document.getElementById('stat-step-wrap').classList.toggle('hidden', !isMicro);
+      document.getElementById('stat-step-wrap').classList.toggle('flex', isMicro);
+      document.getElementById('stat-re-wrap').classList.toggle('hidden', isMicro);
+      document.getElementById('stat-re-wrap').classList.toggle('flex', !isMicro);
+
+      const btnMicro = document.getElementById('btn-mode-micro');
+      const btnMacro = document.getElementById('btn-mode-macro');
+      if (isMicro) {
+        btnMicro.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30';
+        btnMacro.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800/70';
+        controls.enabled = true;
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+        renderer.domElement.style.cursor = 'grab';
+        transitionCamera(new THREE.Vector3(0, 19, 19), new THREE.Vector3(0, 0, 0));
+        if (microSim) {
+          updateEducationCard('micro', microSim.phase, microSim.bounceEvents.length);
+        }
+      } else {
+        btnMacro.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30';
+        btnMicro.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800/70';
+        if (macroSim) {
+          applyMacroToolMode(macroSim.toolMode);
+        }
+        transitionCamera(new THREE.Vector3(0, 26, 25), new THREE.Vector3(0, 0, 0));
+      }
+      syncEngineAndGridUI();
+    }
+
+    // 安全实例化两个模拟对象，全部构造完成后再同步 UI
+    microSim = new MicroLBMScene(microGroup, 9, 5);
+    macroSim = new MacroLBMScene(macroGroup, 200, 88);
+
+    // 初始化所有 UI 状态
+    updateMicroStepUI(microSim);
+    updateProbePanel(microSim, microSim.selectedIdx);
+    updatePlayButtonUI(microSim);
+    syncEngineAndGridUI();
+
+    // 顶部导航事件
+    document.getElementById('btn-mode-micro').addEventListener('click', () => switchMode('micro'));
+    document.getElementById('btn-mode-macro').addEventListener('click', () => switchMode('macro'));
+
+    const topHeaderEl = document.getElementById('top-header');
+    const leftPanelEl = document.getElementById('left-panel');
+    const rightPanelEl = document.getElementById('right-panel');
+    const toggleUiBtn = document.getElementById('btn-toggle-ui');
+
+    function syncPanelOffsets() {
+      if (!topHeaderEl) return;
+      const topPx = `${Math.ceil(topHeaderEl.getBoundingClientRect().bottom + 12)}px`;
+      if (leftPanelEl) leftPanelEl.style.top = topPx;
+      if (rightPanelEl) rightPanelEl.style.top = topPx;
+    }
+
+    let uiHidden = window.innerWidth < 768;
+    function applyPanelVisibility() {
+      if (leftPanelEl) {
+        leftPanelEl.style.transform = uiHidden ? 'translateX(-115%)' : 'translateX(0)';
+      }
+      if (toggleUiBtn) {
+        toggleUiBtn.setAttribute('aria-expanded', String(!uiHidden));
+      }
+    }
+    applyPanelVisibility();
+    syncPanelOffsets();
+    if (typeof ResizeObserver !== 'undefined' && topHeaderEl) {
+      new ResizeObserver(syncPanelOffsets).observe(topHeaderEl);
+    }
+
+    toggleUiBtn.addEventListener('click', () => {
+      uiHidden = !uiHidden;
+      applyPanelVisibility();
+    });
+
+    // 模式一控件事件
+    document.getElementById('btn-micro-apply-grid').addEventListener('click', () => {
+      const nx = parseInt(document.getElementById('input-micro-nx').value, 10) || 9;
+      const ny = parseInt(document.getElementById('input-micro-ny').value, 10) || 5;
+      microSim.resizeGrid(nx, ny, true);
+      syncEngineAndGridUI();
+    });
+    document.getElementById('btn-micro-play').addEventListener('click', () => {
+      microSim.autoPlay = !microSim.autoPlay;
+      updatePlayButtonUI(microSim);
+    });
+    document.getElementById('btn-micro-step').addEventListener('click', () => {
+      microSim.autoPlay = false;
+      updatePlayButtonUI(microSim);
+      microSim.triggerSingleStep();
+    });
+    document.getElementById('btn-micro-pulse').addEventListener('click', () => microSim.injectPulse(true, true));
+    document.getElementById('btn-micro-reset').addEventListener('click', () => microSim.resetGrid(true));
+
+    document.getElementById('slider-micro-tau').addEventListener('input', (e) => {
+      microSim.tau = parseFloat(e.target.value);
+      document.getElementById('val-micro-tau').textContent = microSim.tau.toFixed(2);
+    });
+    document.getElementById('slider-micro-speed').addEventListener('input', (e) => {
+      microSim.animSpeed = parseFloat(e.target.value);
+      document.getElementById('val-micro-speed').textContent = microSim.animSpeed.toFixed(1) + 'x';
+    });
+
+    // 模式二控件事件
+    const btnMacroPlay = document.getElementById('btn-macro-play');
+    btnMacroPlay.addEventListener('click', () => {
+      macroSim.playing = !macroSim.playing;
+      btnMacroPlay.textContent = macroSim.playing ? '⏸ 暂停模拟' : '▶ 继续模拟';
+    });
+    document.getElementById('btn-macro-reset').addEventListener('click', () => macroSim.loadPreset(macroSim.preset));
+
+    // GPU / CPU 后端切换
+    document.querySelectorAll('.macro-backend-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        macroSim.setBackend(btn.dataset.backend);
+        syncEngineAndGridUI();
+      });
+    });
+
+    // 快捷网格分辨率切换与手动应用
+    function applyMacroGridResolution(nx, ny) {
+      macroSim.rebuildAll(nx, ny, true);
+      // 自动按分辨率给出合理的默认画笔半径
+      const autoBrush = clamp(Math.round((macroSim.ny * 0.048) * 2) / 2, 1.5, 16.0);
+      macroSim.brushRadius = autoBrush;
+      document.getElementById('slider-macro-brush').value = autoBrush;
+      document.getElementById('val-macro-brush').textContent = `${autoBrush.toFixed(1)} 格`;
+      syncEngineAndGridUI();
+    }
+
+    document.querySelectorAll('.macro-res-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [nx, ny] = btn.dataset.res.split('x').map(Number);
+        applyMacroGridResolution(nx, ny);
+      });
+    });
+
+    document.getElementById('btn-macro-apply-grid').addEventListener('click', () => {
+      const nx = parseInt(document.getElementById('input-macro-nx').value, 10) || 200;
+      const ny = parseInt(document.getElementById('input-macro-ny').value, 10) || 88;
+      applyMacroGridResolution(nx, ny);
+    });
+
+    ['input-macro-nx', 'input-macro-ny'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('btn-macro-apply-grid').click();
+        }
+      });
+    });
+
+    document.getElementById('btn-macro-clear-solid').addEventListener('click', () => {
+      macroSim.clearObstacles();
+    });
+
+    document.querySelectorAll('.macro-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        macroSim.loadPreset(btn.dataset.preset);
+        document.querySelectorAll('.macro-preset-btn').forEach(b => {
+          const active = b === btn;
+          b.className = active
+            ? 'macro-preset-btn py-1.5 px-2 rounded-xl text-xs font-medium bg-cyan-500/25 border border-cyan-400/60 text-cyan-200 transition'
+            : 'macro-preset-btn py-1.5 px-2 rounded-xl text-xs font-medium bg-slate-800/80 border border-slate-700 text-slate-300 hover:bg-slate-700 transition';
+        });
+      });
+    });
+
+    document.querySelectorAll('.macro-field-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        macroSim.fieldMode = btn.dataset.field;
+        document.querySelectorAll('.macro-field-btn').forEach(b => {
+          const active = b === btn;
+          b.className = active
+            ? 'macro-field-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-cyan-500 text-slate-950 transition'
+            : 'macro-field-btn py-1.5 px-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition';
+        });
+
+        const bar = document.getElementById('macro-colorbar');
+        const lbl = document.getElementById('macro-field-label');
+        const cMin = document.getElementById('colorbar-min');
+        const cMid = document.getElementById('colorbar-mid');
+        const cMax = document.getElementById('colorbar-max');
+
+        if (macroSim.fieldMode === 'vorticity') {
+          lbl.textContent = '旋度 (Vorticity)';
+          bar.style.background = 'linear-gradient(90deg, #1d4ed8, #06b6d4, #0f172a, #f97316, #ef4444)';
+          cMin.textContent = '顺时针 (-ω)'; cMid.textContent = '0'; cMax.textContent = '逆时针 (+ω)';
+        } else if (macroSim.fieldMode === 'velocity') {
+          lbl.textContent = '速度大小 (|u|)';
+          bar.style.background = 'linear-gradient(90deg, #0d2559, #0ea5e9, #4ade80, #facc15, #ef4444)';
+          cMin.textContent = '静止 (0)'; cMid.textContent = 'u₀'; cMax.textContent = '高速区';
+        } else {
+          lbl.textContent = '相对密度 (ρ)';
+          bar.style.background = 'linear-gradient(90deg, #6d28d9, #1e293b, #f59e0b, #fde047)';
+          cMin.textContent = '低压尾流'; cMid.textContent = 'ρ₀ = 1.0'; cMax.textContent = '高压驻点';
+        }
+      });
+    });
+
+    document.querySelectorAll('.macro-tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => applyMacroToolMode(btn.dataset.tool));
+    });
+
+    document.getElementById('slider-macro-brush').addEventListener('input', (e) => {
+      macroSim.brushRadius = parseFloat(e.target.value);
+      document.getElementById('val-macro-brush').textContent = `${macroSim.brushRadius.toFixed(1)} 格`;
+    });
+    document.getElementById('slider-macro-steps').addEventListener('input', (e) => {
+      macroSim.stepsPerFrame = parseInt(e.target.value, 10);
+      document.getElementById('val-macro-steps').textContent = macroSim.stepsPerFrame;
+    });
+    document.getElementById('slider-macro-tau').addEventListener('input', (e) => {
+      macroSim.tau = parseFloat(e.target.value);
+      document.getElementById('val-macro-tau').textContent = macroSim.tau.toFixed(3);
+    });
+    document.getElementById('slider-macro-u0').addEventListener('input', (e) => {
+      macroSim.u0 = parseFloat(e.target.value);
+      document.getElementById('val-macro-u0').textContent = macroSim.u0.toFixed(3);
+    });
+    document.getElementById('slider-macro-height').addEventListener('input', (e) => {
+      macroSim.heightScale = parseFloat(e.target.value);
+      document.getElementById('val-macro-height').textContent = macroSim.heightScale.toFixed(1);
+    });
+    document.getElementById('toggle-tracers').addEventListener('change', (e) => {
+      macroSim.showTracers = e.target.checked;
+    });
+
+    // =========================================================================
+    // 7. 3D 射线拾取（微观点击/悬停 & 宏观绘制/擦除）
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const downPos = { x: 0, y: 0 };
+    let isPainting = false;
+
+    function updatePointer(e) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      downPos.x = e.clientX;
+      downPos.y = e.clientY;
+      camGoal.active = false;
+
+      if (currentMode === 'macro' && macroSim && macroSim.toolMode !== 'orbit' && e.button === 0) {
+        isPainting = true;
+        updatePointer(e);
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObject(macroSim.hitPlane);
+        if (hits.length > 0) {
+          macroSim.paintAtWorldPoint(hits[0].point, macroSim.toolMode === 'draw');
+        }
+      }
+    });
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      updatePointer(e);
+      if (currentMode === 'micro' && microSim) {
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(microSim.pickables);
+        if (hits.length > 0) {
+          const idx = hits[0].object.userData.cellIdx;
+          if (microSim.hoveredIdx !== idx) {
+            microSim.hoveredIdx = idx;
+            updateProbePanel(microSim, idx);
+          }
+          renderer.domElement.style.cursor = 'pointer';
+        } else {
+          microSim.hoveredIdx = -1;
+          renderer.domElement.style.cursor = 'grab';
+        }
+      } else if (currentMode === 'macro' && macroSim && isPainting) {
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObject(macroSim.hitPlane);
+        if (hits.length > 0) {
+          macroSim.paintAtWorldPoint(hits[0].point, macroSim.toolMode === 'draw');
+        }
+      }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      isPainting = false;
+      if (currentMode === 'micro' && microSim && e.button === 0) {
+        const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+        if (dist < 6) {
+          updatePointer(e);
+          raycaster.setFromCamera(pointer, camera);
+          const hits = raycaster.intersectObjects(microSim.pickables);
+          if (hits.length > 0) {
+            microSim.toggleSolid(hits[0].object.userData.cellIdx);
+          }
+        }
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      syncPanelOffsets();
+    });
+
+    // =========================================================================
+    // 8. 主渲染循环与 FPS 监控
+    // =========================================================================
+    let lastTime = performance.now();
+    let fpsFrames = 0;
+    let fpsTimer = 0;
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      fpsFrames++;
+      fpsTimer += dt;
+      if (fpsTimer >= 0.4) {
+        const fps = Math.round(fpsFrames / fpsTimer);
+        document.getElementById('stat-fps').textContent = fps;
+        fpsFrames = 0;
+        fpsTimer = 0;
+      }
+
+      if (camGoal.active) {
+        camera.position.lerp(camGoal.pos, 0.08);
+        controls.target.lerp(camGoal.target, 0.08);
+        if (camera.position.distanceTo(camGoal.pos) < 0.15) {
+          camGoal.active = false;
+        }
+      }
+      controls.update();
+
+      if (currentMode === 'micro' && microSim) {
+        microSim.update(dt);
+      } else if (macroSim) {
+        macroSim.update(now * 0.001);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    const startLoop = () => {
+      lastTime = performance.now();
+      requestAnimationFrame(animate);
+    };
+    if (document.readyState === 'complete') {
+      startLoop();
+    } else {
+      window.addEventListener('load', startLoop);
+    }
+  </script>
+</body>
+</html>
